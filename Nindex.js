@@ -74,13 +74,20 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.post('/slots', (req, res) => {
   const { direction, address } = req.body;
   const today = new Date();
-  const slots = (schedules[address] || [])
-    .filter(slot => {
-      const d = new Date(slot.date);
-      const diff = (d - today) / (1000 * 60 * 60 * 24);
-      return slot.direction.trim() === direction.trim() && diff >= 0 && diff < 3;
-    })
-    .map(slot => ({ date: slot.date, time: slot.time }));
+  console.log('REQUEST direction:', direction, '| address:', address);
+  const arr = schedules[address] || [];
+  console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
+  const slots = arr.filter(slot => {
+    const d = new Date(slot.date);
+    const diff = (d - today) / (1000 * 60 * 60 * 24);
+    // Логируем результат сравнения
+    const match = slot.direction.trim() === direction.trim();
+    if (match && diff >= 0 && diff < 3) {
+      console.log('MATCH:', slot.direction, '|', direction, '|', slot.date, slot.time);
+    }
+    return match && diff >= 0 && diff < 3;
+  })
+  .map(slot => ({ date: slot.date, time: slot.time }));
   res.json({ ok: true, slots });
 });
 
