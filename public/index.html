@@ -4,22 +4,111 @@
   <meta charset="utf-8">
   <title>Записаться на пробное занятие</title>
   <style>
-    body { font-family: sans-serif; padding: 1rem; }
-    .step { display: none; }
-    .step.active { display: block; }
-    .buttons { margin-top: 1rem; }
+    /* Цветовая палитра */
+    :root {
+      --black: #000000;
+      --graphite: #272727;
+      --white: #FFFFFF;
+      --gold: #D4AF37;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--gold);
+    }
+
+    .step {
+      display: none;
+      background: var(--graphite);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .step.active {
+      display: block;
+    }
+
+    select, input[type="text"], input[type="tel"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      margin-bottom: 16px;
+      border: none;
+      border-radius: 4px;
+      background: var(--black);
+      color: var(--white);
+      font-size: 1rem;
+    }
+    select:focus, input:focus {
+      outline: 2px solid var(--gold);
+    }
+
+    .buttons {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s;
+      color: var(--white);
+      background: var(--gold);
+    }
+    button:hover {
+      background: #b5942c;
+    }
+
+    .back-button {
+      background: var(--graphite);
+    }
+    .back-button:hover {
+      background: #1f1f1f;
+    }
+
+    ul {
+      list-style: none;
+      margin-bottom: 20px;
+    }
+    ul li {
+      padding: 8px 0;
+      border-bottom: 1px solid #444;
+    }
+    ul li b {
+      color: var(--gold);
+    }
   </style>
 </head>
 <body>
   <h1>Запишитесь на пробное</h1>
 
   <div id="step-1" class="step active">
-    <p><strong>Шаг 1 из 4:</strong> Выберите цель занятий</p>
+    <p><strong>Шаг 1 из 4:</strong> Цель занятий</p>
     <select id="goal">
-      <option value="Укрепить здоровье">Укрепить здоровье</option>
-      <option value="Научиться танцевать">Научиться танцевать</option>
-      <option value="Похудеть">Похудеть</option>
-      <option value="Другое">Другое</option>
+      <option>Укрепить здоровье</option>
+      <option>Научиться танцевать</option>
+      <option>Похудеть</option>
+      <option>Другое</option>
     </select>
     <div class="buttons">
       <button id="to-step-2">Далее →</button>
@@ -27,39 +116,39 @@
   </div>
 
   <div id="step-2" class="step">
-    <p><strong>Шаг 2 из 4:</strong> Выберите направление</p>
+    <p><strong>Шаг 2 из 4:</strong> Направление</p>
     <select id="direction">
-      <option value="Фитнес">Фитнес</option>
-      <option value="Танцы">Танцы</option>
-      <option value="Йога">Йога</option>
-      <option value="Другое">Другое</option>
+      <option>Фитнес</option>
+      <option>Танцы</option>
+      <option>Йога</option>
+      <option>Другое</option>
     </select>
     <div class="buttons">
-      <button id="back-2">← Назад</button>
+      <button class="back-button" id="back-2">← Назад</button>
       <button id="to-step-3">Далее →</button>
     </div>
   </div>
 
   <div id="step-3" class="step">
-    <p><strong>Шаг 3 из 4:</strong> Введите ваше имя</p>
-    <input type="text" id="name" placeholder="Ваше имя" required>
+    <p><strong>Шаг 3 из 4:</strong> Ваше имя</p>
+    <input type="text" id="name" placeholder="Введите имя" required>
     <div class="buttons">
-      <button id="back-3">← Назад</button>
+      <button class="back-button" id="back-3">← Назад</button>
       <button id="to-step-4">Далее →</button>
     </div>
   </div>
 
   <div id="step-4" class="step">
-    <p><strong>Шаг 4 из 4:</strong> Введите телефон</p>
+    <p><strong>Шаг 4 из 4:</strong> Телефон</p>
     <input type="tel" id="phone" placeholder="+7..." required>
     <div class="buttons">
-      <button id="back-4">← Назад</button>
+      <button class="back-button" id="back-4">← Назад</button>
       <button id="to-step-5">Подтвердить →</button>
     </div>
   </div>
 
   <div id="step-5" class="step">
-    <p><strong>Проверьте введённые данные:</strong></p>
+    <p><strong>Проверьте данные:</strong></p>
     <ul>
       <li><b>Цель:</b> <span id="summary-goal"></span></li>
       <li><b>Направление:</b> <span id="summary-direction"></span></li>
@@ -67,7 +156,7 @@
       <li><b>Телефон:</b> <span id="summary-phone"></span></li>
     </ul>
     <div class="buttons">
-      <button id="back-5">← Назад</button>
+      <button class="back-button" id="back-5">← Назад</button>
       <button id="submit">Отправить заявку</button>
     </div>
   </div>
@@ -85,20 +174,17 @@
       document.getElementById(id).classList.add('active');
     }
 
-    // Шаг 1 → 2
     document.getElementById('to-step-2').onclick = () => {
       data.goal = document.getElementById('goal').value;
       show('step-2');
     };
 
-    // Шаг 2 → 3 / Назад
     document.getElementById('to-step-3').onclick = () => {
       data.direction = document.getElementById('direction').value;
       show('step-3');
     };
     document.getElementById('back-2').onclick = () => show('step-1');
 
-    // Шаг 3 → 4 / Назад
     document.getElementById('to-step-4').onclick = () => {
       data.name = document.getElementById('name').value.trim();
       if (!data.name) return alert('Введите имя');
@@ -106,11 +192,9 @@
     };
     document.getElementById('back-3').onclick = () => show('step-2');
 
-    // Шаг 4 → 5 / Назад
     document.getElementById('to-step-5').onclick = () => {
       data.phone = document.getElementById('phone').value.trim();
       if (!data.phone) return alert('Введите телефон');
-      // Заполняем сводку
       document.getElementById('summary-goal').textContent = data.goal;
       document.getElementById('summary-direction').textContent = data.direction;
       document.getElementById('summary-name').textContent = data.name;
@@ -119,7 +203,6 @@
     };
     document.getElementById('back-4').onclick = () => show('step-3');
 
-    // Подтверждение → отправка
     document.getElementById('submit').onclick = async () => {
       const payload = {
         telegram_id: tg.initDataUnsafe.user.id,
@@ -134,7 +217,7 @@
       if (result.ok) {
         tg.close();
       } else {
-        alert('Ошибка отправки, попробуйте позже');
+        alert('Ошибка отправки');
       }
     };
     document.getElementById('back-5').onclick = () => show('step-4');
