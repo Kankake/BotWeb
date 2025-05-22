@@ -85,6 +85,55 @@ app.post('/submit', async (req, res) => {
     res.status(500).json({ ok: false });
   }
 });
+//добавил хуйню
+document.getElementById('chooseSelf').onclick = () => {
+  data.goal = 'Самостоятельный выбор';
+  populateDirs(true);
+  show('step-3');
+};
+
+const directionDescriptions = {
+  'Классическая хореография': 'Почувствуйте себя настоящей балериной, занимаясь под классическую музыку...',
+  'Партерная хореография': 'Эта тренировка начинается на полу, где прорабатывается выворотность...',
+  'Барре': 'Энергичная тренировка у станка под современную музыку...',
+  'Боди-Балет': 'Кардио с элементами силовых упражнений...',
+  'Балетная подкачка': 'Самая интенсивная тренировка в формате круговой программы...',
+  'Растяжка': 'Занятие для полноценной проработки тела...',
+  'Пилатес': 'Это дыхательная практика с фокусом на глубокие мышцы...',
+  'Попа-пресс': 'Интенсивная тренировка для проработки ягодиц и пресса...'
+};
+
+function populateDirs(showAll = false) {
+  const cont = document.getElementById('options-dir');
+  cont.innerHTML = '';
+  const list = showAll ? Object.keys(directionDescriptions) : (map[data.goal] || Object.values(map).flat());
+  list.forEach(val => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'option-wrapper';
+
+    const d = document.createElement('div');
+    d.className = 'option';
+    d.textContent = val;
+    d.dataset.val = val;
+    d.onclick = () => {
+      document.querySelectorAll('#options-dir .option').forEach(o => o.classList.remove('selected'));
+      d.classList.add('selected');
+      data.direction = val;
+    };
+
+    const infoBtn = document.createElement('button');
+    infoBtn.className = 'info-btn';
+    infoBtn.textContent = 'ℹ️';
+    infoBtn.onclick = (e) => {
+      e.stopPropagation();
+      alert(directionDescriptions[val]);
+    };
+
+    wrapper.appendChild(d);
+    wrapper.appendChild(infoBtn);
+    cont.appendChild(wrapper);
+  });
+}
 
 // Запуск
 bot.launch().then(() => console.log('Bot started'));
