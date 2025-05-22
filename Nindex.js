@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { Telegraf, Markup } = require('telegraf');
 
 // Load config from .env
@@ -13,6 +14,16 @@ const WEBHOOK_PATH  = '/tg-webhook';
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
   process.exit(1);
+}
+
+// Load monthly-updatable schedule from JSON file
+let schedules = {};
+try {
+  const dataPath = path.join(__dirname, 'data', 'schedules.json');
+  schedules = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+  console.log('✅ Loaded schedules from data/schedules.json');
+} catch (err) {
+  console.error('❌ Failed to load schedules.json:', err);
 }
 
 // Initialize bot
@@ -28,7 +39,6 @@ bot.start(ctx => {
   );
 });
 
-// Call request
 bot.hears('📞 Запись по звонку администратора', ctx => {
   ctx.reply(
     'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
@@ -36,6 +46,7 @@ bot.hears('📞 Запись по звонку администратора', ct
       .resize().oneTime()
   );
 });
+
 bot.on('contact', async ctx => {
   const { first_name, phone_number } = ctx.message.contact;
   await bot.telegram.sendMessage(
@@ -45,7 +56,6 @@ bot.on('contact', async ctx => {
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
 
-// Online booking
 bot.hears('🖥️ Запись онлайн', ctx => {
   ctx.reply(
     'Заполните онлайн-форму:',
@@ -60,11 +70,25 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Endpoint to retrieve slots
+app.post('/slots', (req, res) => {
+  const { direction, address } = req.body;
+  const today = new Date();
+  const slots = (schedules[address] || [])
+    .filter(slot => {
+      const d = new Date(slot.date);
+      const diff = (d - today) / (1000 * 60 * 60 * 24);
+      return slot.direction === direction && diff >= 0 && diff < 3;
+    })
+    .map(slot => ({ date: slot.date, time: slot.time }));
+  res.json({ ok: true, slots });
+});
+
 // WebApp form submission endpoint
 app.post('/submit', async (req, res) => {
   try {
-    const { telegram_id, goal, direction, address, name, phone } = req.body;
-    const msg = `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nАдрес: ${address}\nИмя: ${name}\nТелефон: ${phone}\nID: ${telegram_id}`;
+    const { telegram_id, goal, direction, address, name, phone, slot } = req.body;
+    const msg = `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nСтудия: ${address}\nСлот: ${slot || 'не указан'}\nИмя: ${name}\nТелефон: ${phone}\nID: ${telegram_id}`;
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
     await bot.telegram.sendMessage(
       telegram_id,
