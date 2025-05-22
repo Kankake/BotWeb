@@ -78,7 +78,7 @@ app.post('/slots', (req, res) => {
     .filter(slot => {
       const d = new Date(slot.date);
       const diff = (d - today) / (1000 * 60 * 60 * 24);
-      return slot.direction === direction && diff >= 0 && diff < 3;
+      return slot.direction.trim() === direction.trim() && diff >= 0 && diff < 3;
     })
     .map(slot => ({ date: slot.date, time: slot.time }));
   res.json({ ok: true, slots });
