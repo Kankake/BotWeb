@@ -3,8 +3,8 @@ const express = require('express');
 const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+const BOT_TOKEN = 7789111664:AAHFxzibymG5omwu7kI1N-oSOy1j4rscGr4;
+const ADMIN_CHAT_ID = 229386778;
 const WEBAPP_URL = process.env.WEBAPP_URL || '';
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID) {
