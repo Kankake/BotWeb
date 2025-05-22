@@ -275,7 +275,12 @@
         cont.appendChild(d);
       });
     }
-
+// 1. Находим кнопку "Хочу выбрать направление" и меняем её логику:
+document.getElementById('chooseSelf').onclick = () => {
+  data.goal = 'Самостоятельный выбор';
+  populateDirs(true); // показать все направления
+  show('step-3');
+};
     function fetchSlots() {
       fetch('/slots', {
         method: 'POST',
