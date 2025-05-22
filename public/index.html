@@ -2,58 +2,142 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Запись на пробное занятие</title>
+  <title>Записаться на пробное занятие</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    .step { display: none; }
+    .step.active { display: block; }
+    .buttons { margin-top: 1rem; }
+  </style>
 </head>
 <body>
-  <h1>Записаться на пробное занятие</h1>
-  <form id="bookingForm">
-    <label>Имя:<br><input type="text" id="name" required></label><br>
-    <label>Телефон:<br><input type="tel" id="phone" required></label><br>
-    <label>Цель:<br>
-      <select id="goal">
-        <option>Укрепить здоровье</option>
-        <option>Научиться танцевать</option>
-        <option>Похудеть</option>
-        <option>Другое</option>
-      </select>
-    </label><br>
-    <label>Направление:<br>
-      <select id="direction">
-        <option>Фитнес</option>
-        <option>Танцы</option>
-        <option>Йога</option>
-        <option>Другое</option>
-      </select>
-    </label><br><br>
-    <button type="submit">Отправить</button>
-  </form>
+  <h1>Запишитесь на пробное</h1>
+
+  <div id="step-1" class="step active">
+    <p><strong>Шаг 1 из 4:</strong> Выберите цель занятий</p>
+    <select id="goal">
+      <option value="Укрепить здоровье">Укрепить здоровье</option>
+      <option value="Научиться танцевать">Научиться танцевать</option>
+      <option value="Похудеть">Похудеть</option>
+      <option value="Другое">Другое</option>
+    </select>
+    <div class="buttons">
+      <button id="to-step-2">Далее →</button>
+    </div>
+  </div>
+
+  <div id="step-2" class="step">
+    <p><strong>Шаг 2 из 4:</strong> Выберите направление</p>
+    <select id="direction">
+      <option value="Фитнес">Фитнес</option>
+      <option value="Танцы">Танцы</option>
+      <option value="Йога">Йога</option>
+      <option value="Другое">Другое</option>
+    </select>
+    <div class="buttons">
+      <button id="back-2">← Назад</button>
+      <button id="to-step-3">Далее →</button>
+    </div>
+  </div>
+
+  <div id="step-3" class="step">
+    <p><strong>Шаг 3 из 4:</strong> Введите ваше имя</p>
+    <input type="text" id="name" placeholder="Ваше имя" required>
+    <div class="buttons">
+      <button id="back-3">← Назад</button>
+      <button id="to-step-4">Далее →</button>
+    </div>
+  </div>
+
+  <div id="step-4" class="step">
+    <p><strong>Шаг 4 из 4:</strong> Введите телефон</p>
+    <input type="tel" id="phone" placeholder="+7..." required>
+    <div class="buttons">
+      <button id="back-4">← Назад</button>
+      <button id="to-step-5">Подтвердить →</button>
+    </div>
+  </div>
+
+  <div id="step-5" class="step">
+    <p><strong>Проверьте введённые данные:</strong></p>
+    <ul>
+      <li><b>Цель:</b> <span id="summary-goal"></span></li>
+      <li><b>Направление:</b> <span id="summary-direction"></span></li>
+      <li><b>Имя:</b> <span id="summary-name"></span></li>
+      <li><b>Телефон:</b> <span id="summary-phone"></span></li>
+    </ul>
+    <div class="buttons">
+      <button id="back-5">← Назад</button>
+      <button id="submit">Отправить заявку</button>
+    </div>
+  </div>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
-    document.getElementById('bookingForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+
+    const steps = ['step-1','step-2','step-3','step-4','step-5'];
+    let data = {};
+
+    function show(id) {
+      steps.forEach(s => document.getElementById(s).classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // Шаг 1 → 2
+    document.getElementById('to-step-2').onclick = () => {
+      data.goal = document.getElementById('goal').value;
+      show('step-2');
+    };
+
+    // Шаг 2 → 3 / Назад
+    document.getElementById('to-step-3').onclick = () => {
+      data.direction = document.getElementById('direction').value;
+      show('step-3');
+    };
+    document.getElementById('back-2').onclick = () => show('step-1');
+
+    // Шаг 3 → 4 / Назад
+    document.getElementById('to-step-4').onclick = () => {
+      data.name = document.getElementById('name').value.trim();
+      if (!data.name) return alert('Введите имя');
+      show('step-4');
+    };
+    document.getElementById('back-3').onclick = () => show('step-2');
+
+    // Шаг 4 → 5 / Назад
+    document.getElementById('to-step-5').onclick = () => {
+      data.phone = document.getElementById('phone').value.trim();
+      if (!data.phone) return alert('Введите телефон');
+      // Заполняем сводку
+      document.getElementById('summary-goal').textContent = data.goal;
+      document.getElementById('summary-direction').textContent = data.direction;
+      document.getElementById('summary-name').textContent = data.name;
+      document.getElementById('summary-phone').textContent = data.phone;
+      show('step-5');
+    };
+    document.getElementById('back-4').onclick = () => show('step-3');
+
+    // Подтверждение → отправка
+    document.getElementById('submit').onclick = async () => {
       const payload = {
         telegram_id: tg.initDataUnsafe.user.id,
-        name: document.getElementById('name').value,
-        phone: document.getElementById('phone').value,
-        goal: document.getElementById('goal').value,
-        direction: document.getElementById('direction').value
+        ...data
       };
-      const response = await fetch('/submit', {
+      const resp = await fetch('/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
-      const result = await response.json();
+      const result = await resp.json();
       if (result.ok) {
-        alert('Спасибо! Ваша заявка отправлена.');
         tg.close();
       } else {
-        alert('Ошибка отправки. Попробуйте позже.');
+        alert('Ошибка отправки, попробуйте позже');
       }
-    });
+    };
+    document.getElementById('back-5').onclick = () => show('step-4');
   </script>
 </body>
 </html>
