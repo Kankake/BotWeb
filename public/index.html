@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Запись на пробное занятие | LEVITA</title>
-  <!-- Шрифт, близкий к тому, что на сайте -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -16,8 +15,10 @@
     h1{font-size:1.5rem;margin-bottom:16px;color:var(--accent-gold);} p{font-size:0.95rem;margin-bottom:16px;line-height:1.4;}
     .step{display:none;} .step.active{display:block;}
     .options{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
-    .option{padding:12px;border:2px solid var(--accent-gold);border-radius:8px;cursor:pointer;background:var(--card-bg);color:var(--text-dark);font-weight:500;}
+    .option{position:relative;padding:12px;border:2px solid var(--accent-gold);border-radius:8px;cursor:pointer;background:var(--card-bg);color:var(--text-dark);font-weight:500;}
     .option.selected{background:var(--accent-gold);color:#fff;}
+    .info-btn{position:absolute;top:8px;right:8px;background:var(--accent-gold);border:none;border-radius:4px;padding:2px 6px;font-size:0.75rem;color:#fff;cursor:pointer;}
+    .description{margin:8px 0 0;font-size:0.85rem;color:var(--text-muted);display:none;text-align:left;}
     input,button{font-family:'Roboto',sans-serif;} input[type="text"],input[type="tel"]{width:100%;padding:12px;margin:8px 0;border:1px solid #ccc;border-radius:6px;font-size:1rem;}
     .buttons{display:flex;gap:12px;justify-content:center;} button{flex:1;padding:12px;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-weight:500;}
     .primary{background:var(--accent-gold);color:#fff;} .primary:hover{background:var(--btn-hover);} .secondary{background:var(--text-muted);color:#fff;} .secondary:hover{background:#444;}
@@ -66,7 +67,7 @@
       <div class="buttons"><button class="secondary" id="back4">Назад</button><button class="primary" id="next4">Далее</button></div>
     </div>
 
-    <!-- Step 5: Slot Selection -->
+    <!-- Step 5: Slots -->
     <div id="step-5" class="card step">
       <h1>Доступные слоты</h1>
       <div class="options" id="options-slots"></div>
@@ -102,99 +103,33 @@
       <div class="buttons"><button class="primary" id="thankBtn">Закрыть</button></div>
     </div>
   </div>
-
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    const steps = ['step-1','step-2','step-3','step-4','step-5','step-6','step-7','step-8'];
-    let data = {};
-    const show = id => { steps.forEach(s => document.getElementById(s).classList.remove('active')); document.getElementById(id).classList.add('active'); };
+    const tg = window.Telegram.WebApp; tg.expand();
+    const steps=['step-1','step-2','step-3','step-4','step-5','step-6','step-7','step-8']; let data={};
+    const show=id=>{steps.forEach(s=>document.getElementById(s).classList.remove('active'));document.getElementById(id).classList.add('active');};
 
-    // Step1 → Step2
-    document.getElementById('startBtn').addEventListener('click', () => show('step-2'));
+    document.getElementById('startBtn').addEventListener('click',()=>show('step-2'));
 
-    // Step2: Goal
-    document.querySelectorAll('#options-goal .option').forEach(el => el.addEventListener('click', () => {
-      document.querySelectorAll('#options-goal .option').forEach(o=>o.classList.remove('selected'));
-      el.classList.add('selected');
-      data.goal = el.dataset.val;
-    }));
-    document.getElementById('chooseSelf').addEventListener('click', () => { data.goal='Самостоятельный выбор'; populateDirs(true); show('step-3'); });
-    document.getElementById('next2').addEventListener('click', () => data.goal && (populateDirs(), show('step-3')));
-    document.getElementById('back2').addEventListener('click', () => show('step-1'));
-
-    // Step3: Directions
-    const directionDescriptions = {
-      'Классическая хореография': 'Почувствуйте себя настоящей балериной...',
-      /* ... остальные описания ... */
+    const directionDescriptions={
+      'Классическая хореография':'Почувствуйте себя настоящей балериной, занимаясь под классическую музыку. Это мягкая тренировка адаптированная для любителей, которая гармонично прорабатывает все тело. Ваши движения станут пластичными, осанка — королевской. Уже после первой тренировки вы почувствуете, как расправляются плечи. С накопительным эффектом — чем дольше занимаетесь, тем лучше сохраняется красивая осанка.',
+      'Партерная хореография':'Эта тренировка начинается на полу, где прорабатывается выворотность, как у профессиональных балерин. После работы в партере встать к станку будет легче. Отлично подходит для развития гибкости и координации.',
+      'Барре':'Энергичная тренировка у станка под современную музыку, направленная на развитие силы и рельефа. Основной акцент — на ягодицы и ноги: они станут подтянутыми и красивыми. За счёт ритмичности занятия вы получаете как силовую нагрузку, так и улучшение выносливости.',
+      'Боди-Балет':'Кардио с элементами силовых упражнений. Отличный выбор, если ваша цель — похудение! Процесс жиросжигания идёт активно, мышцы подтягиваются, а тело становится стройнее. Вы укрепите все основные группы мышц, улучшите выносливость и получите заряд энергии.',
+      'Балетная подкачка':'Самая интенсивная тренировка в формате круговой программы. Поэтапно задействуем все мышцы, создавая комплексную нагрузку. Результат — мощное укрепление и тонус всего тела.',
+      'Растяжка':'Занятие для полноценной проработки тела без акцента на шпагат. Мы мягко тянем все мышцы — от шеи до стоп, уделяя внимание гибкости и улучшению подвижности суставов. Вы почувствуете лёгкость и расслабление в теле уже после первой тренировки.',
+      'Пилатес':'Это дыхательная практика, где каждая минута тренировки посвящена правильному дыханию и проработке глубоких мышц, поддерживающих осанку и внутренние органы. Упражнения укрепляют всё тело, улучшая осанку, но за счёт деликатного подхода тренировка подходит всем уровням подготовки.'
     };
-    function populateDirs(showAll=false) {
-      const cont = document.getElementById('options-dir'); cont.innerHTML = '';
-      const map = {
-        'Укрепить тело':['Барре','Боди-Балет'],
-        'Улучшить мобильность суставов':['Растяжка'],
-        'Поправить осанку':['Классическая хореография','Пилатес'],
-        'Убрать лишний вес':['Барре','Боди-Балет'],
-        'Хочу танцевать':['Классическая хореография']
-      };
-      const list = showAll ? Object.keys(directionDescriptions) : (map[data.goal]||[]);
-      list.forEach(val => {
-        const d = document.createElement('div'); d.className='option'; d.dataset.val=val; d.textContent=val;
-        d.addEventListener('click', () => { document.querySelectorAll('#options-dir .option').forEach(o=>o.classList.remove('selected')); d.classList.add('selected'); data.direction=val; });
-        cont.appendChild(d);
-      });
-    }
-    document.getElementById('next3').addEventListener('click', () => data.direction && show('step-4'));
-    document.getElementById('back3').addEventListener('click', () => show('step-2'));
-
-    // Step4: Studio → fetch slots
-    document.querySelectorAll('#options-address .option').forEach(el => el.addEventListener('click', () => {
-      document.querySelectorAll('#options-address .option').forEach(o=>o.classList.remove('selected'));
-      el.classList.add('selected'); data.address=el.dataset.val;
-      // fetch slots immediately
-      fetch('/slots', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ direction: data.direction, address: data.address }) })
-        .then(r => r.json())
-        .then(res => {
-          if(res.ok && res.slots.length) {
-            const cont = document.getElementById('options-slots'); cont.innerHTML='';
-            res.slots.forEach(s => {
-              const b = document.createElement('div'); b.className='option'; b.textContent=`${s.date} ${s.time}`;
-              b.addEventListener('click', () => { data.slot=`${s.date} ${s.time}`; document.getElementById('sum-slot').textContent=data.slot; show('step-6'); });
-              cont.appendChild(b);
-            });
-            show('step-5');
-          } else alert('Нет доступных слотов.');
-        });
-    }));
-    document.getElementById('back4').addEventListener('click', () => show('step-3'));
-
-    // Step6: Contacts
-    document.getElementById('back5').addEventListener('click', () => show('step-4'));
-    document.getElementById('next6').addEventListener('click', () => {
-      const nameInp=document.getElementById('name'), phoneInp=document.getElementById('phone');
-      nameInp.value = tg.initDataUnsafe.user.first_name + (tg.initDataUnsafe.user.last_name?' '+tg.initDataUnsafe.user.last_name:'');
-      const n=nameInp.value.trim(), p=phoneInp.value.trim(); if(!n||!p){ alert('Заполните оба поля'); return; }
-      data.name=n; data.phone=p;
-      document.getElementById('sum-goal').textContent=data.goal;
-      document.getElementById('sum-dir').textContent=data.direction;
-      document.getElementById('sum-address').textContent=data.address;
-      document.getElementById('sum-slot').textContent=data.slot;
-      document.getElementById('sum-name').textContent=data.name;
-      document.getElementById('sum-phone').textContent=data.phone;
-      show('step-7');
-    });
-
-    // Step7: Submit
-    document.getElementById('back6').addEventListener('click', () => show('step-5'));
-    document.getElementById('submit7').addEventListener('click', async () => {
-      const resp = await fetch('/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ telegram_id:tg.initDataUnsafe.user.id, ...data }) });
-      const r = await resp.json();
-      if(r.ok) show('step-8'); else alert('Ошибка отправки');
-    });
-
-    // Step8: Close
-    document.getElementById('thankBtn').addEventListener('click', () => tg.close());
+    function populateDirs(showAll=false){
+      const cont=document.getElementById('options-dir');cont.innerHTML='';
+      const map={'Укрепить тело':['Барре','Боди-Балет'],'Улучшить мобильность суставов':['Растяжка'],'Поправить осанку':['Классическая хореография','Пилатес'],'Убрать лишний вес':['Барре','Боди-Балет'],'Хочу танцевать':['Классическая хореография']};
+      const list=showAll?Object.keys(directionDescriptions):(map[data.goal]||[]);
+      list.forEach(val=>{const d=document.createElement('div');d.className='option';d.dataset.val=val;d.textContent=val;const btn=document.createElement('button');btn.className='info-btn';btn.textContent='о направлении';btn.addEventListener('click',e=>{e.stopPropagation();const desc=d.querySelector('.description');desc.style.display=desc.style.display==='block'?'none':'block';});const desc=document.createElement('div');desc.className='description';desc.textContent=directionDescriptions[val];d.append(btn,desc);d.addEventListener('click',()=>{document.querySelectorAll('#options-dir .option').forEach(o=>o.classList.remove('selected'));d.classList.add('selected');data.direction=val;});cont.appendChild(d);});}
+    document.getElementById('back2').addEventListener('click',()=>show('step-1'));document.getElementById('next2').addEventListener('click',()=>data.goal&&(populateDirs(),show('step-3')));document.getElementById('chooseSelf').addEventListener('click',()=>{data.goal='Самостоятельный выбор';populateDirs(true);show('step-3');});
+    document.getElementById('back3').addEventListener('click',()=>show('step-2'));document.getElementById('next3').addEventListener('click',()=>data.direction&&show('step-4'));
+    document.querySelectorAll('#options-address .option').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll('#options-address .option').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');data.address=el.dataset.val;}));document.getElementById('back4').addEventListener('click',()=>show('step-3'));document.getElementById('next4').addEventListener('click',()=>{if(!data.address)return;fetch('/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({direction:data.direction,address:data.address})}).then(r=>r.json()).then(res=>{if(res.ok&&res.slots.length){const cont=document.getElementById('options-slots');cont.innerHTML='';res.slots.forEach(s=>{const b=document.createElement('div');b.className='option';b.textContent=`${s.date} ${s.time}`;b.addEventListener('click',()=>{data.slot=`${s.date} ${s.time}`;document.getElementById('sum-slot').textContent=data.slot;show('step-6');});cont.appendChild(b);});show('step-5');}else alert('Нет доступных слотов.');});});
+    document.getElementById('back5').addEventListener('click',()=>show('step-4'));document.getElementById('next6').addEventListener('click',()=>{const nI=document.getElementById('name'),pI=document.getElementById('phone');nI.value=tg.initDataUnsafe.user.first_name+(tg.initDataUnsafe.user.last_name?' '+tg.initDataUnsafe.user.last_name:'');const n=nI.value.trim(),p=pI.value.trim();if(!n||!p){alert('Заполните оба поля');return;}data.name=n;data.phone=p;document.getElementById('sum-goal').textContent=data.goal;document.getElementById('sum-dir').textContent=data.direction;document.getElementById('sum-address').textContent=data.address;document.getElementById('sum-slot').textContent=data.slot;document.getElementById('sum-name').textContent=data.name;document.getElementById('sum-phone').textContent=data.phone;show('step-7');});
+    document.getElementById('back6').addEventListener('click',()=>show('step-5'));document.getElementById('submit7').addEventListener('click',async()=>{const resp=await fetch('/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:tg.initDataUnsafe.user.id,...data})});const r=await resp.json();if(r.ok)show('step-8');else alert('Ошибка отправки');});document.getElementById('thankBtn').addEventListener('click',()=>tg.close());
   </script>
 </body>
 </html>
