@@ -2,68 +2,51 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Записаться на пробное занятие</title>
+  <title>Запись на пробное занятие</title>
   <style>
-    /* Цветовая палитра */
     :root {
-      --black: #000000;
+      --black: #000;
       --graphite: #272727;
-      --white: #FFFFFF;
+      --white: #fff;
       --gold: #D4AF37;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-    }
-
+    * { box-sizing:border-box; margin:0; padding:0; }
     body {
       background: var(--black);
       color: var(--white);
+      font-family: sans-serif;
       padding: 20px;
     }
-
-    h1 {
-      font-size: 1.8rem;
-      text-align: center;
-      margin-bottom: 20px;
-      color: var(--gold);
-    }
-
-    .step {
-      display: none;
+    .card {
       background: var(--graphite);
       border-radius: 8px;
       padding: 20px;
       margin-bottom: 20px;
     }
-    .step.active {
-      display: block;
-    }
-
-    select, input[type="text"], input[type="tel"] {
-      width: 100%;
-      padding: 10px;
-      margin-top: 8px;
+    h1 {
+      color: var(--gold);
+      text-align: center;
       margin-bottom: 16px;
-      border: none;
-      border-radius: 4px;
+    }
+    .step { display: none; }
+    .step.active { display: block; }
+    .option {
       background: var(--black);
-      color: var(--white);
-      font-size: 1rem;
+      border: 1px solid var(--gold);
+      border-radius: 4px;
+      padding: 10px;
+      margin: 8px 0;
+      cursor: pointer;
     }
-    select:focus, input:focus {
-      outline: 2px solid var(--gold);
+    .option.selected {
+      background: var(--gold);
+      color: var(--black);
     }
-
     .buttons {
       display: flex;
-      justify-content: space-between;
       gap: 10px;
+      margin-top: 16px;
     }
-
     button {
       flex: 1;
       padding: 12px;
@@ -71,93 +54,76 @@
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      transition: background 0.2s;
-      color: var(--white);
+    }
+    button.primary {
       background: var(--gold);
+      color: var(--black);
     }
-    button:hover {
-      background: #b5942c;
-    }
-
-    .back-button {
+    button.secondary {
       background: var(--graphite);
+      color: var(--white);
     }
-    .back-button:hover {
-      background: #1f1f1f;
-    }
-
-    ul {
-      list-style: none;
-      margin-bottom: 20px;
-    }
-    ul li {
-      padding: 8px 0;
-      border-bottom: 1px solid #444;
-    }
-    ul li b {
-      color: var(--gold);
-    }
+    button.primary:hover { background: #b5942c; }
+    button.secondary:hover { background: #1f1f1f; }
   </style>
 </head>
 <body>
-  <h1>Запишитесь на пробное</h1>
-
-  <div id="step-1" class="step active">
-    <p><strong>Шаг 1 из 4:</strong> Цель занятий</p>
-    <select id="goal">
-      <option>Укрепить здоровье</option>
-      <option>Научиться танцевать</option>
-      <option>Похудеть</option>
-      <option>Другое</option>
-    </select>
+  <!-- Step 1: Intro -->
+  <div class="card step active" id="step-1">
+    <h1>Здравствуйте!</h1>
+    <p>Мы сеть студий LEVITA. Запишитесь сегодня — получите пробное занятие бесплатно.</p>
     <div class="buttons">
-      <button id="to-step-2">Далее →</button>
+      <button class="primary" id="startBtn">Далее →</button>
     </div>
   </div>
 
-  <div id="step-2" class="step">
-    <p><strong>Шаг 2 из 4:</strong> Направление</p>
-    <select id="direction">
-      <option>Фитнес</option>
-      <option>Танцы</option>
-      <option>Йога</option>
-      <option>Другое</option>
-    </select>
+  <!-- Step 2: Goals -->
+  <div class="card step" id="step-2">
+    <h1>Шаг 1: Ваша цель</h1>
+    <div id="options-goal">
+      <div class="option" data-val="Укрепить тело">Укрепить тело</div>
+      <div class="option" data-val="Улучшить мобильность суставов">Улучшить мобильность суставов</div>
+      <div class="option" data-val="Поправить осанку">Поправить осанку</div>
+      <div class="option" data-val="Убрать лишний вес">Убрать лишний вес</div>
+      <div class="option" data-val="Хочу танцевать">Хочу танцевать</div>
+    </div>
     <div class="buttons">
-      <button class="back-button" id="back-2">← Назад</button>
-      <button id="to-step-3">Далее →</button>
+      <button class="secondary" id="back2">← Назад</button>
+      <button class="primary" id="next2">Далее →</button>
     </div>
   </div>
 
-  <div id="step-3" class="step">
-    <p><strong>Шаг 3 из 4:</strong> Ваше имя</p>
-    <input type="text" id="name" placeholder="Введите имя" required>
+  <!-- Step 3: Directions -->
+  <div class="card step" id="step-3">
+    <h1>Шаг 2: Направление</h1>
+    <div id="options-dir"></div>
     <div class="buttons">
-      <button class="back-button" id="back-3">← Назад</button>
-      <button id="to-step-4">Далее →</button>
+      <button class="secondary" id="back3">← Назад</button>
+      <button class="primary" id="next3">Далее →</button>
     </div>
   </div>
 
-  <div id="step-4" class="step">
-    <p><strong>Шаг 4 из 4:</strong> Телефон</p>
-    <input type="tel" id="phone" placeholder="+7..." required>
+  <!-- Step 4: Name & Phone -->
+  <div class="card step" id="step-4">
+    <h1>Шаг 3: Контакты</h1>
+    <input type="text" id="name" placeholder="Имя" style="width:100%;padding:10px;border:none;border-radius:4px;margin:8px 0;">
+    <input type="tel"  id="phone" placeholder="Телефон" style="width:100%;padding:10px;border:none;border-radius:4px;margin:8px 0;">
     <div class="buttons">
-      <button class="back-button" id="back-4">← Назад</button>
-      <button id="to-step-5">Подтвердить →</button>
+      <button class="secondary" id="back4">← Назад</button>
+      <button class="primary" id="next4">Далее →</button>
     </div>
   </div>
 
-  <div id="step-5" class="step">
-    <p><strong>Проверьте данные:</strong></p>
-    <ul>
-      <li><b>Цель:</b> <span id="summary-goal"></span></li>
-      <li><b>Направление:</b> <span id="summary-direction"></span></li>
-      <li><b>Имя:</b> <span id="summary-name"></span></li>
-      <li><b>Телефон:</b> <span id="summary-phone"></span></li>
-    </ul>
+  <!-- Step 5: Summary & Submit -->
+  <div class="card step" id="step-5">
+    <h1>Проверьте данные</h1>
+    <p><b>Цель:</b> <span id="sum-goal"></span></p>
+    <p><b>Направление:</b> <span id="sum-dir"></span></p>
+    <p><b>Имя:</b> <span id="sum-name"></span></p>
+    <p><b>Телефон:</b> <span id="sum-phone"></span></p>
     <div class="buttons">
-      <button class="back-button" id="back-5">← Назад</button>
-      <button id="submit">Отправить заявку</button>
+      <button class="secondary" id="back5">← Назад</button>
+      <button class="primary" id="submit">Отправить</button>
     </div>
   </div>
 
@@ -165,62 +131,82 @@
   <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
-
     const steps = ['step-1','step-2','step-3','step-4','step-5'];
     let data = {};
 
     function show(id) {
-      steps.forEach(s => document.getElementById(s).classList.remove('active'));
+      steps.forEach(s=>document.getElementById(s).classList.remove('active'));
       document.getElementById(id).classList.add('active');
     }
 
-    document.getElementById('to-step-2').onclick = () => {
-      data.goal = document.getElementById('goal').value;
-      show('step-2');
-    };
+    // Step1 → Step2
+    document.getElementById('startBtn').onclick = ()=>show('step-2');
 
-    document.getElementById('to-step-3').onclick = () => {
-      data.direction = document.getElementById('direction').value;
-      show('step-3');
-    };
-    document.getElementById('back-2').onclick = () => show('step-1');
+    // Step2: select goal
+    document.querySelectorAll('#options-goal .option').forEach(el=>{
+      el.onclick = () => {
+        document.querySelectorAll('#options-goal .option').forEach(x=>x.classList.remove('selected'));
+        el.classList.add('selected');
+        data.goal = el.dataset.val;
+      };
+    });
+    document.getElementById('next2').onclick = ()=>data.goal && show('step-3');
+    document.getElementById('back2').onclick = ()=>show('step-1');
 
-    document.getElementById('to-step-4').onclick = () => {
-      data.name = document.getElementById('name').value.trim();
-      if (!data.name) return alert('Введите имя');
-      show('step-4');
+    // Step3: populate dirs & select
+    const map = {
+      'Укрепить тело': ['Барре','Боди-Балет'],
+      'Улучшить мобильность суставов': ['Растяжка'],
+      'Поправить осанку': ['Классическая хореография','Пилатес'],
+      'Убрать лишний вес': ['Барре','Боди-Балет'],
+      'Хочу танцевать': ['Классическая хореография']
     };
-    document.getElementById('back-3').onclick = () => show('step-2');
+    function populateDirs() {
+      const cont = document.getElementById('options-dir');
+      cont.innerHTML = '';
+      const list = map[data.goal] || Object.values(map).flat();
+      list.forEach(val=>{
+        const div = document.createElement('div');
+        div.className = 'option';
+        div.dataset.val = val;
+        div.textContent = val;
+        div.onclick = ()=>{
+          document.querySelectorAll('#options-dir .option').forEach(x=>x.classList.remove('selected'));
+          div.classList.add('selected');
+          data.direction = val;
+        };
+        cont.appendChild(div);
+      });
+    }
+    document.getElementById('next2').onclick = ()=>data.goal && (populateDirs(), show('step-3'));
+    document.getElementById('next3').onclick = ()=>data.direction && show('step-4');
+    document.getElementById('back3').onclick = ()=>show('step-2');
 
-    document.getElementById('to-step-5').onclick = () => {
-      data.phone = document.getElementById('phone').value.trim();
-      if (!data.phone) return alert('Введите телефон');
-      document.getElementById('summary-goal').textContent = data.goal;
-      document.getElementById('summary-direction').textContent = data.direction;
-      document.getElementById('summary-name').textContent = data.name;
-      document.getElementById('summary-phone').textContent = data.phone;
+    // Step4: name & phone
+    document.getElementById('next4').onclick = ()=>{
+      const name = document.getElementById('name').value.trim();
+      const phone= document.getElementById('phone').value.trim();
+      if(!name||!phone) return alert('Заполните оба поля');
+      data.name = name; data.phone = phone;
+      document.getElementById('sum-goal').textContent = data.goal;
+      document.getElementById('sum-dir').textContent = data.direction;
+      document.getElementById('sum-name').textContent = name;
+      document.getElementById('sum-phone').textContent = phone;
       show('step-5');
     };
-    document.getElementById('back-4').onclick = () => show('step-3');
+    document.getElementById('back4').onclick = ()=>show('step-3');
 
-    document.getElementById('submit').onclick = async () => {
-      const payload = {
-        telegram_id: tg.initDataUnsafe.user.id,
-        ...data
-      };
+    // Submit
+    document.getElementById('submit').onclick = async ()=>{
       const resp = await fetch('/submit', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ telegram_id:tg.initDataUnsafe.user.id, ...data })
       });
-      const result = await resp.json();
-      if (result.ok) {
-        tg.close();
-      } else {
-        alert('Ошибка отправки');
-      }
+      const json = await resp.json();
+      if(json.ok) tg.close(); else alert('Ошибка отправки');
     };
-    document.getElementById('back-5').onclick = () => show('step-4');
+    document.getElementById('back5').onclick = ()=>show('step-4');
   </script>
 </body>
 </html>
