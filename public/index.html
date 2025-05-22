@@ -17,7 +17,7 @@
     .options{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
     .option{position:relative;padding:12px;border:2px solid var(--accent-gold);border-radius:8px;cursor:pointer;background:var(--card-bg);color:var(--text-dark);font-weight:500;}
     .option.selected{background:var(--accent-gold);color:#fff;}
-    .info-btn{position:absolute;top:8px;right:8px;background:var(--accent-gold);border:none;border-radius:4px;padding:2px 6px;font-size:0.75rem;color:#fff;cursor:pointer;}
+    .info-btn{display:block;margin:8px auto;background:#f0f0f0;border:none;border-radius:4px;padding:4px 8px;font-size:0.75rem;color:var(--text-dark);cursor:pointer;}
     .description{margin:8px 0 0;font-size:0.85rem;color:var(--text-muted);display:none;text-align:left;}
     input,button{font-family:'Roboto',sans-serif;} input[type="text"],input[type="tel"]{width:100%;padding:12px;margin:8px 0;border:1px solid #ccc;border-radius:6px;font-size:1rem;}
     .buttons{display:flex;gap:12px;justify-content:center;} button{flex:1;padding:12px;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-weight:500;}
@@ -33,7 +33,6 @@
       <p>Мы сеть студий <strong>LEVITA</strong>. Запишитесь сегодня и получите пробное занятие бесплатно.</p>
       <div class="buttons"><button class="primary" id="startBtn">Далее</button></div>
     </div>
-
     <!-- Step 2: Goal -->
     <div id="step-2" class="card step">
       <h1>Ваша цель</h1>
@@ -48,14 +47,12 @@
       </div>
       <div class="buttons"><button class="secondary" id="back2">Назад</button><button class="primary" id="next2">Далее</button></div>
     </div>
-
     <!-- Step 3: Direction -->
     <div id="step-3" class="card step">
       <h1>Выберите направление</h1>
       <div class="options" id="options-dir"></div>
       <div class="buttons"><button class="secondary" id="back3">Назад</button><button class="primary" id="next3">Далее</button></div>
     </div>
-
     <!-- Step 4: Studio -->
     <div id="step-4" class="card step">
       <h1>Выберите студию</h1>
@@ -66,22 +63,19 @@
       </div>
       <div class="buttons"><button class="secondary" id="back4">Назад</button><button class="primary" id="next4">Далее</button></div>
     </div>
-
     <!-- Step 5: Slots -->
     <div id="step-5" class="card step">
       <h1>Доступные слоты</h1>
       <div class="options" id="options-slots"></div>
-      <div class="buttons"><button class="secondary" id="noSlotsBtn">Ничего не подходит</button></div>
+      <div class="buttons"><button class="secondary" id="backSlots">Назад</button><button class="primary" id="nextSlots">Далее</button></div>
     </div>
-
     <!-- Step 6: Contacts -->
     <div id="step-6" class="card step">
       <h1>Ваши контакты</h1>
       <input type="text" id="name" placeholder="Имя" required>
       <input type="tel" id="phone" placeholder="+7 (___) ___-__-__" required>
-      <div class="buttons"><button class="secondary" id="back6">Назад</button><button class="primary" id="next6">Далее</button></div>
+      <div class="buttons"><button class="secondary" id="back6">Назад</button><button class="primary" id="next5">Далее</button></div>
     </div>
-
     <!-- Step 7: Confirmation -->
     <div id="step-7" class="card step">
       <h1>Проверьте данные</h1>
@@ -95,7 +89,6 @@
       </ul>
       <div class="buttons"><button class="secondary" id="back7">Назад</button><button class="primary" id="submit7">Отправить</button></div>
     </div>
-
     <!-- Step 8: Success -->
     <div id="step-8" class="card step">
       <h1>Готово!</h1>
@@ -108,9 +101,7 @@
     const tg = window.Telegram.WebApp; tg.expand();
     const steps=['step-1','step-2','step-3','step-4','step-5','step-6','step-7','step-8']; let data={};
     const show=id=>{steps.forEach(s=>document.getElementById(s).classList.remove('active'));document.getElementById(id).classList.add('active');};
-
     document.getElementById('startBtn').addEventListener('click',()=>show('step-2'));
-
     const directionDescriptions={
       'Классическая хореография':'Почувствуйте себя настоящей балериной, занимаясь под классическую музыку. Это мягкая тренировка адаптированная для любителей, которая гармонично прорабатывает все тело. Ваши движения станут пластичными, осанка — королевской. Уже после первой тренировки вы почувствуете, как расправляются плечи. С накопительным эффектом — чем дольше занимаетесь, тем лучше сохраняется красивая осанка.',
       'Партерная хореография':'Эта тренировка начинается на полу, где прорабатывается выворотность, как у профессиональных балерин. После работы в партере встать к станку будет легче. Отлично подходит для развития гибкости и координации.',
@@ -124,12 +115,62 @@
       const cont=document.getElementById('options-dir');cont.innerHTML='';
       const map={'Укрепить тело':['Барре','Боди-Балет'],'Улучшить мобильность суставов':['Растяжка'],'Поправить осанку':['Классическая хореография','Пилатес'],'Убрать лишний вес':['Барре','Боди-Балет'],'Хочу танцевать':['Классическая хореография']};
       const list=showAll?Object.keys(directionDescriptions):(map[data.goal]||[]);
-      list.forEach(val=>{const d=document.createElement('div');d.className='option';d.dataset.val=val;d.textContent=val;const btn=document.createElement('button');btn.className='info-btn';btn.textContent='о направлении';btn.addEventListener('click',e=>{e.stopPropagation();const desc=d.querySelector('.description');desc.style.display=desc.style.display==='block'?'none':'block';});const desc=document.createElement('div');desc.className='description';desc.textContent=directionDescriptions[val];d.append(btn,desc);d.addEventListener('click',()=>{document.querySelectorAll('#options-dir .option').forEach(o=>o.classList.remove('selected'));d.classList.add('selected');data.direction=val;});cont.appendChild(d);});}
-    document.getElementById('back2').addEventListener('click',()=>show('step-1'));document.getElementById('next2').addEventListener('click',()=>data.goal&&(populateDirs(),show('step-3')));document.getElementById('chooseSelf').addEventListener('click',()=>{data.goal='Самостоятельный выбор';populateDirs(true);show('step-3');});
-    document.getElementById('back3').addEventListener('click',()=>show('step-2'));document.getElementById('next3').addEventListener('click',()=>data.direction&&show('step-4'));
-    document.querySelectorAll('#options-address .option').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll('#options-address .option').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');data.address=el.dataset.val;}));document.getElementById('back4').addEventListener('click',()=>show('step-3'));document.getElementById('next4').addEventListener('click',()=>{if(!data.address)return;fetch('/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({direction:data.direction,address:data.address})}).then(r=>r.json()).then(res=>{if(res.ok&&res.slots.length){const cont=document.getElementById('options-slots');cont.innerHTML='';res.slots.forEach(s=>{const b=document.createElement('div');b.className='option';b.textContent=`${s.date} ${s.time}`;b.addEventListener('click',()=>{data.slot=`${s.date} ${s.time}`;document.getElementById('sum-slot').textContent=data.slot;show('step-6');});cont.appendChild(b);});show('step-5');}else alert('Нет доступных слотов.');});});
-    document.getElementById('back5').addEventListener('click',()=>show('step-4'));document.getElementById('next6').addEventListener('click',()=>{const nI=document.getElementById('name'),pI=document.getElementById('phone');nI.value=tg.initDataUnsafe.user.first_name+(tg.initDataUnsafe.user.last_name?' '+tg.initDataUnsafe.user.last_name:'');const n=nI.value.trim(),p=pI.value.trim();if(!n||!p){alert('Заполните оба поля');return;}data.name=n;data.phone=p;document.getElementById('sum-goal').textContent=data.goal;document.getElementById('sum-dir').textContent=data.direction;document.getElementById('sum-address').textContent=data.address;document.getElementById('sum-slot').textContent=data.slot;document.getElementById('sum-name').textContent=data.name;document.getElementById('sum-phone').textContent=data.phone;show('step-7');});
-    document.getElementById('back6').addEventListener('click',()=>show('step-5'));document.getElementById('submit7').addEventListener('click',async()=>{const resp=await fetch('/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:tg.initDataUnsafe.user.id,...data})});const r=await resp.json();if(r.ok)show('step-8');else alert('Ошибка отправки');});document.getElementById('thankBtn').addEventListener('click',()=>tg.close());
+      list.forEach(val=>{const d=document.createElement('div');d.className='option';d.dataset.val=val;d.textContent=val;
+        const btn=document.createElement('button');btn.className='info-btn';btn.textContent='о направлении';btn.addEventListener('click',e=>{e.stopPropagation();const desc=d.querySelector('.description');desc.style.display=desc.style.display==='block'?'none':'block';});
+        const desc=document.createElement('div');desc.className='description';desc.textContent=directionDescriptions[val];
+        d.append(btn,desc);
+        d.addEventListener('click',()=>{document.querySelectorAll('#options-dir .option').forEach(o=>o.classList.remove('selected'));d.classList.add('selected');data.direction=val;});
+        cont.appendChild(d);
+      });
+    }
+    document.getElementById('back2').addEventListener('click',()=>show('step-1'));
+    document.getElementById('next2').addEventListener('click',()=>data.goal&&(populateDirs(),show('step-3')));
+    document.getElementById('chooseSelf').addEventListener('click',()=>{data.goal='Самостоятельный выбор';populateDirs(true);show('step-3');});
+    document.getElementById('back3').addEventListener('click',()=>show('step-2'));
+    document.getElementById('next3').addEventListener('click',()=>data.direction&&show('step-4'));
+    document.querySelectorAll('#options-address .option').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll('#options-address .option').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');data.address=el.dataset.val;}));
+    document.getElementById('back4').addEventListener('click',()=>show('step-3'));
+    document.getElementById('next4').addEventListener('click',()=>{
+      if(!data.address)return;fetch('/slots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({direction:data.direction,address:data.address})})
+      .then(r=>r.json()).then(res=>{if(res.ok&&res.slots.length){
+        const cont=document.getElementById('options-slots');cont.innerHTML='';
+        res.slots.forEach(s=>{
+          const b=document.createElement('div');b.className='option';b.textContent=`${s.date} ${s.time}`;
+          b.addEventListener('click',()=>{
+            document.querySelectorAll('#options-slots .option').forEach(o=>o.classList.remove('selected'));
+            b.classList.add('selected');
+            data.slot=`${s.date} ${s.time}`;
+          });
+          cont.appendChild(b);
+        });
+        show('step-5');
+      } else alert('Нет доступных слотов.');
+    });
+    });
+    document.getElementById('backSlots').addEventListener('click',()=>show('step-4'));
+    document.getElementById('nextSlots').addEventListener('click',()=>{
+      if(!data.slot) return alert('Пожалуйста, выберите слот');
+      show('step-6');
+    });
+    document.getElementById('back5').addEventListener('click',()=>show('step-5'));
+    document.getElementById('next5').addEventListener('click',()=>{
+      const nameInp=document.getElementById('name');
+      const phoneInp=document.getElementById('phone');
+      nameInp.value = tg.initDataUnsafe.user.first_name + (tg.initDataUnsafe.user.last_name? ' '+tg.initDataUnsafe.user.last_name:'');
+      const n=nameInp.value.trim(); const p=phoneInp.value.trim();
+      if(!n||!p) return alert('Пожалуйста, заполните оба поля');
+      data.name=n; data.phone=p;
+      document.getElementById('sum-goal').textContent=data.goal;
+      document.getElementById('sum-dir').textContent=data.direction;
+      document.getElementById('sum-address').textContent=data.address;
+      document.getElementById('sum-slot').textContent=data.slot;
+      document.getElementById('sum-name').textContent=data.name;
+      document.getElementById('sum-phone').textContent=data.phone;
+      show('step-7');
+    });
+    document.getElementById('back6').addEventListener('click',()=>show('step-6'));
+    document.getElementById('submit7').addEventListener('click',async()=>{const resp=await fetch('/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:tg.initDataUnsafe.user.id,...data})});const r=await resp.json();if(r.ok)show('step-8');else alert('Ошибка отправки');});
+    document.getElementById('thankBtn').addEventListener('click',()=>tg.close());
   </script>
 </body>
 </html>
