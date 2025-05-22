@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Запись на пробное занятие</title>
+</head>
+<body>
+  <h1>Записаться на пробное занятие</h1>
+  <form id="bookingForm">
+    <label>Имя:<br><input type="text" id="name" required></label><br>
+    <label>Телефон:<br><input type="tel" id="phone" required></label><br>
+    <label>Цель:<br>
+      <select id="goal">
+        <option>Укрепить здоровье</option>
+        <option>Научиться танцевать</option>
+        <option>Похудеть</option>
+        <option>Другое</option>
+      </select>
+    </label><br>
+    <label>Направление:<br>
+      <select id="direction">
+        <option>Фитнес</option>
+        <option>Танцы</option>
+        <option>Йога</option>
+        <option>Другое</option>
+      </select>
+    </label><br><br>
+    <button type="submit">Отправить</button>
+  </form>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        telegram_id: tg.initDataUnsafe.user.id,
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        goal: document.getElementById('goal').value,
+        direction: document.getElementById('direction').value
+      };
+      const response = await fetch('/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+      if (result.ok) {
+        alert('Спасибо! Ваша заявка отправлена.');
+        tg.close();
+      } else {
+        alert('Ошибка отправки. Попробуйте позже.');
+      }
+    });
+  </script>
+</body>
+</html>
