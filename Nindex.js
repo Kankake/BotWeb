@@ -3,23 +3,22 @@ const express = require('express');
 const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 
+// Load config from .env
 const BOT_TOKEN     = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
-const WEBAPP_URL    = process.env.WEBAPP_URL;
+const WEBAPP_URL    = process.env.WEBAPP_URL;  // e.g. https://your-domain.com
 const PORT          = process.env.PORT || 3000;
+const WEBHOOK_PATH  = '/tg-webhook';
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
-  console.error('Не заданы BOT_TOKEN, ADMIN_CHAT_ID или WEBAPP_URL');
+  console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
   process.exit(1);
 }
 
+// Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
-const app = express();
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// 1) Стартовое меню
+// === Bot Handlers ===
 bot.start(ctx => {
   ctx.reply(
     'Выберите способ записи:',
@@ -29,13 +28,12 @@ bot.start(ctx => {
   );
 });
 
-// 2) Запись по звонку — запрос контакта
+// Call request
 bot.hears('📞 Запись по звонку администратора', ctx => {
   ctx.reply(
     'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
-    Markup.keyboard([
-      [Markup.button.contactRequest('📲 Отправить контакт')]
-    ]).resize().oneTime()
+    Markup.keyboard([[ Markup.button.contactRequest('📲 Отправить контакт') ]])
+      .resize().oneTime()
   );
 });
 bot.on('contact', async ctx => {
@@ -47,7 +45,7 @@ bot.on('contact', async ctx => {
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
 
-// 3) Онлайн-запись — кнопка WebApp
+// Online booking
 bot.hears('🖥️ Запись онлайн', ctx => {
   ctx.reply(
     'Заполните онлайн-форму:',
@@ -57,47 +55,46 @@ bot.hears('🖥️ Запись онлайн', ctx => {
   );
 });
 
-// 4) Обработка отправки из WebApp
+// === Express App ===
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// WebApp form submission endpoint
 app.post('/submit', async (req, res) => {
   try {
-    const { telegram_id, goal, direction, name, phone } = req.body;
-    // уведомляем администратора
-    await bot.telegram.sendMessage(
-      ADMIN_CHAT_ID,
-      `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nИмя: ${name}\nТелефон: ${phone}\nПользователь ID: ${telegram_id}`
-    );
-    // после формы запрашиваем контакт для подтверждения
+    const { telegram_id, goal, direction, address, name, phone } = req.body;
+    const msg = `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nАдрес: ${address}\nИмя: ${name}\nТелефон: ${phone}\nID: ${telegram_id}`;
+    await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
     await bot.telegram.sendMessage(
       telegram_id,
       'Спасибо! Для подтверждения, пожалуйста, поделитесь контактом.',
-      Markup.keyboard([
-        [Markup.button.contactRequest('📲 Отправить контакт')]
-      ]).resize().oneTime()
+      Markup.keyboard([[ Markup.button.contactRequest('📲 Отправить контакт') ]])
+        .resize().oneTime()
     );
     return res.json({ ok: true });
   } catch (err) {
-    console.error('Ошибка в /submit:', err);
+    console.error('Error in /submit:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// Запуск бота и сервера
-(async () => {
+// Telegram webhook callback
+app.use(bot.webhookCallback(WEBHOOK_PATH));
+
+// Start server and set webhook
+app.listen(PORT, async () => {
+  console.log(`🌐 Server listening on port ${PORT}`);
   try {
-    // Удаляем возможный webhook перед polling
     await bot.telegram.deleteWebhook();
-    console.log('✅ Webhook удалён, переключаемся на polling');
-    // Запускаем polling, сбрасывая накопившиеся обновления
-    await bot.launch({ dropPendingUpdates: true });
-    console.log('🚀 Бот запущен в режиме polling');
-  } catch (error) {
-    console.error('❌ Ошибка при запуске бота:', error);
+    console.log('✅ Old webhook deleted');
+    await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
+    console.log(`✅ Webhook set to ${WEBAPP_URL}${WEBHOOK_PATH}`);
+  } catch (e) {
+    console.error('❌ Failed to set webhook:', e);
     process.exit(1);
   }
-
-  // Запуск HTTP-сервера
-  app.listen(PORT, () => console.log(`🌐 Web server listening on port ${PORT}`));
-})();
+});
 
 // Graceful shutdown
 process.once('SIGINT', () => bot.stop('SIGINT'));
