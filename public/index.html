@@ -281,32 +281,32 @@ document.getElementById('chooseSelf').onclick = () => {
   populateDirs(true); // показать все направления
   show('step-3');
 };
-    function fetchSlots() {
-      fetch('/slots', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction: data.direction, address: data.address })
-      })
-      .then(r => r.json())
-      .then(res => {
-        if (res.ok && res.slots.length) {
-          const cont = document.getElementById('options-slots');
-          cont.innerHTML = '';
-          res.slots.forEach(s => {
-            const b = document.createElement('div');
-            b.className = 'option';
-            b.textContent = `${s.date} ${s.time}`;
-            b.onclick = () => {
-              document.querySelectorAll('#options-slots .option').forEach(o => o.classList.remove('selected'));
-              b.classList.add('selected');
-              data.slot = `${s.date} ${s.time}`;
-            };
-            cont.appendChild(b);
-          });
-          show('step-5');
-        } else alert('Нет доступных слотов.');
+function fetchSlots() {
+  fetch('/slots', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ direction: data.direction.trim(), address: data.address })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.ok && res.slots.length) {
+      const cont = document.getElementById('options-slots');
+      cont.innerHTML = '';
+      res.slots.forEach(s => {
+        const b = document.createElement('div');
+        b.className = 'option';
+        b.textContent = `${s.date} ${s.time}`;
+        b.onclick = () => {
+          document.querySelectorAll('#options-slots .option').forEach(o => o.classList.remove('selected'));
+          b.classList.add('selected');
+          data.slot = `${s.date} ${s.time}`;
+        };
+        cont.appendChild(b);
       });
-    }
+      show('step-5');
+    } else alert('Нет доступных слотов.');
+  });
+}
   </script>
 </body>
 </html>
