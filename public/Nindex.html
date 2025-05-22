@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Запись на пробное занятие</title>
+  <style>
+    :root {
+      --black: #000;
+      --graphite: #272727;
+      --white: #fff;
+      --gold: #D4AF37;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    .card {
+      background: var(--graphite);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: var(--gold);
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .step { display: none; }
+    .step.active { display: block; }
+    .option {
+      background: var(--black);
+      border: 1px solid var(--gold);
+      border-radius: 4px;
+      padding: 10px;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+    .option.selected {
+      background: var(--gold);
+      color: var(--black);
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    button {
+      flex: 1;
+      padding: 12px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button.primary {
+      background: var(--gold);
+      color: var(--black);
+    }
+    button.secondary {
+      background: var(--graphite);
+      color: var(--white);
+    }
+    button.primary:hover { background: #b5942c; }
+    button.secondary:hover { background: #1f1f1f; }
+  </style>
+</head>
+<body>
+  <!-- Step 1: Intro -->
+  <div class="card step active" id="step-1">
+    <h1>Здравствуйте!</h1>
+    <p>Мы сеть студий LEVITA. Запишитесь сегодня — получите пробное занятие бесплатно.</p>
+    <div class="buttons">
+      <button class="primary" id="startBtn">Далее →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Goals -->
+  <div class="card step" id="step-2">
+    <h1>Шаг 1: Ваша цель</h1>
+    <div id="options-goal">
+      <div class="option" data-val="Укрепить тело">Укрепить тело</div>
+      <div class="option" data-val="Улучшить мобильность суставов">Улучшить мобильность суставов</div>
+      <div class="option" data-val="Поправить осанку">Поправить осанку</div>
+      <div class="option" data-val="Убрать лишний вес">Убрать лишний вес</div>
+      <div class="option" data-val="Хочу танцевать">Хочу танцевать</div>
+    </div>
+    <div class="buttons">
+      <button class="secondary" id="back2">← Назад</button>
+      <button class="primary" id="next2">Далее →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Directions -->
+  <div class="card step" id="step-3">
+    <h1>Шаг 2: Направление</h1>
+    <div id="options-dir"></div>
+    <div class="buttons">
+      <button class="secondary" id="back3">← Назад</button>
+      <button class="primary" id="next3">Далее →</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Name & Phone -->
+  <div class="card step" id="step-4">
+    <h1>Шаг 3: Контакты</h1>
+    <input type="text" id="name" placeholder="Имя" style="width:100%;padding:10px;border:none;border-radius:4px;margin:8px 0;">
+    <input type="tel"  id="phone" placeholder="Телефон" style="width:100%;padding:10px;border:none;border-radius:4px;margin:8px 0;">
+    <div class="buttons">
+      <button class="secondary" id="back4">← Назад</button>
+      <button class="primary" id="next4">Далее →</button>
+    </div>
+  </div>
+
+  <!-- Step 5: Summary & Submit -->
+  <div class="card step" id="step-5">
+    <h1>Проверьте данные</h1>
+    <p><b>Цель:</b> <span id="sum-goal"></span></p>
+    <p><b>Направление:</b> <span id="sum-dir"></span></p>
+    <p><b>Имя:</b> <span id="sum-name"></span></p>
+    <p><b>Телефон:</b> <span id="sum-phone"></span></p>
+    <div class="buttons">
+      <button class="secondary" id="back5">← Назад</button>
+      <button class="primary" id="submit">Отправить</button>
+    </div>
+  </div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    const steps = ['step-1','step-2','step-3','step-4','step-5'];
+    let data = {};
+
+    function show(id) {
+      steps.forEach(s=>document.getElementById(s).classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // Step1 → Step2
+    document.getElementById('startBtn').onclick = ()=>show('step-2');
+
+    // Step2: select goal
+    document.querySelectorAll('#options-goal .option').forEach(el=>{
+      el.onclick = () => {
+        document.querySelectorAll('#options-goal .option').forEach(x=>x.classList.remove('selected'));
+        el.classList.add('selected');
+        data.goal = el.dataset.val;
+      };
+    });
+    document.getElementById('next2').onclick = ()=>data.goal && show('step-3');
+    document.getElementById('back2').onclick = ()=>show('step-1');
+
+    // Step3: populate dirs & select
+    const map = {
+      'Укрепить тело': ['Барре','Боди-Балет'],
+      'Улучшить мобильность суставов': ['Растяжка'],
+      'Поправить осанку': ['Классическая хореография','Пилатес'],
+      'Убрать лишний вес': ['Барре','Боди-Балет'],
+      'Хочу танцевать': ['Классическая хореография']
+    };
+    function populateDirs() {
+      const cont = document.getElementById('options-dir');
+      cont.innerHTML = '';
+      const list = map[data.goal] || Object.values(map).flat();
+      list.forEach(val=>{
+        const div = document.createElement('div');
+        div.className = 'option';
+        div.dataset.val = val;
+        div.textContent = val;
+        div.onclick = ()=>{
+          document.querySelectorAll('#options-dir .option').forEach(x=>x.classList.remove('selected'));
+          div.classList.add('selected');
+          data.direction = val;
+        };
+        cont.appendChild(div);
+      });
+    }
+    document.getElementById('next2').onclick = ()=>data.goal && (populateDirs(), show('step-3'));
+    document.getElementById('next3').onclick = ()=>data.direction && show('step-4');
+    document.getElementById('back3').onclick = ()=>show('step-2');
+
+    // Step4: name & phone
+    document.getElementById('next4').onclick = ()=>{
+      const name = document.getElementById('name').value.trim();
+      const phone= document.getElementById('phone').value.trim();
+      if(!name||!phone) return alert('Заполните оба поля');
+      data.name = name; data.phone = phone;
+      document.getElementById('sum-goal').textContent = data.goal;
+      document.getElementById('sum-dir').textContent = data.direction;
+      document.getElementById('sum-name').textContent = name;
+      document.getElementById('sum-phone').textContent = phone;
+      show('step-5');
+    };
+    document.getElementById('back4').onclick = ()=>show('step-3');
+
+    // Submit
+    document.getElementById('submit').onclick = async ()=>{
+      const resp = await fetch('/submit', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ telegram_id:tg.initDataUnsafe.user.id, ...data })
+      });
+      const json = await resp.json();
+      if(json.ok) tg.close(); else alert('Ошибка отправки');
+    };
+    document.getElementById('back5').onclick = ()=>show('step-4');
+  </script>
+</body>
+</html>
