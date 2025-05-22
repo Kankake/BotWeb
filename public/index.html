@@ -5,6 +5,7 @@
   <title>Запись на пробное занятие | LEVITA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Шрифт, близкий к тому, что на сайте -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -16,7 +17,7 @@
       --btn-hover: #b5942c;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 2px; }
     html, body { height: 100%; }
 
     body {
@@ -36,7 +37,6 @@
       left: 50%;
       transform: translateX(-50%);
       z-index: 100;
-      margin-bottom: 20px;
     }
 
     .container {
@@ -62,7 +62,6 @@
       margin-bottom: 16px;
       color: var(--accent-gold);
     }
-
     p {
       font-size: 0.95rem;
       margin-bottom: 16px;
@@ -88,25 +87,29 @@
       background: var(--card-bg);
       color: var(--text-dark);
       font-weight: 500;
+      position: relative;
     }
-
     .option.selected {
       background: var(--accent-gold);
       color: var(--card-bg);
     }
 
-    .option-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
     .info-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
       background: none;
       border: none;
+      font-size: 0.9rem;
+      color: var(--accent-gold);
       cursor: pointer;
-      font-size: 1.2rem;
-      margin-left: 10px;
+    }
+    .description {
+      margin: 8px 0 0 0;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: none;
+      text-align: left;
     }
 
     input[type="text"],
@@ -118,7 +121,6 @@
       border-radius: 6px;
       font-size: 1rem;
     }
-
     input:focus {
       outline: 2px solid var(--accent-gold);
     }
@@ -127,8 +129,7 @@
       display: flex;
       gap: 12px;
     }
-
-    button {
+    button.primary {
       flex: 1;
       padding: 12px;
       border: none;
@@ -137,28 +138,30 @@
       cursor: pointer;
       font-weight: 500;
       margin-top: 16px;
-    }
-
-    button.primary {
       background: var(--accent-gold);
       color: var(--card-bg);
       transition: background 0.2s;
     }
-
     button.primary:hover {
       background: var(--btn-hover);
     }
-
     button.secondary {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 500;
+      margin-top: 16px;
       background: var(--text-muted);
       color: var(--card-bg);
     }
-
     button.secondary:hover {
       background: #444;
     }
-
-    ul { list-style: none; margin-bottom: 16px; }
+    img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    ul { list-style: none; margin-bottom: 16px; padding: 0; }
     ul li { margin-bottom: 8px; }
     ul b { color: var(--accent-gold); }
   </style>
@@ -170,7 +173,7 @@
   <div class="container">
     <div id="step-1" class="card step active">
       <h1>Добро пожаловать!</h1>
-      <p>Мы сеть студий <strong>LEVITA</strong>. Запишитесь сегодня — и получите пробное занятие <strong>бесплатно</strong>.</p>
+      <p>Мы сеть студий <strong>LEVITA</strong> и с радостью поможем вам достичь вашей цели! Запишитесь сегодня — и получите пробное занятие <strong>бесплатно</strong>.</p>
       <div class="buttons">
         <button class="primary" id="startBtn">Далее</button>
       </div>
@@ -178,18 +181,18 @@
 
     <div id="step-2" class="card step">
       <h1>Ваша цель</h1>
-      <p style="font-size:0.9rem;">Исходя из вашей цели, мы подберём оптимальное направление.</p>
+      <p>Исходя из выбранной цели мы подберём для вас оптимальные направления.</p>
       <div class="options" id="options-goal">
         <div class="option" data-val="Укрепить тело">Укрепить тело</div>
         <div class="option" data-val="Улучшить мобильность суставов">Улучшить мобильность суставов</div>
         <div class="option" data-val="Поправить осанку">Поправить осанку</div>
         <div class="option" data-val="Убрать лишний вес">Убрать лишний вес</div>
         <div class="option" data-val="Хочу танцевать">Хочу танцевать</div>
+        <div class="option" id="chooseSelf" data-val="Самостоятельный выбор">Хочу выбрать направление сама</div>
       </div>
       <div class="buttons">
-        <button class="primary" id="chooseSelf">Хочу выбрать направление сама</button>
-        <button class="primary" id="next2">Далее</button>
         <button class="secondary" id="back2">Назад</button>
+        <button class="primary" id="next2">Далее</button>
       </div>
     </div>
 
@@ -235,25 +238,6 @@
     const steps = ['step-1','step-2','step-3','step-4','step-5'];
     let data = {};
 
-    const directionDescriptions = {
-      'Классическая хореография': 'Почувствуйте себя настоящей балериной...',
-      'Партерная хореография': 'Эта тренировка начинается на полу...',
-      'Барре': 'Энергичная тренировка у станка...',
-      'Боди-Балет': 'Кардио с элементами силовых упражнений...',
-      'Балетная подкачка': 'Самая интенсивная тренировка...',
-      'Растяжка': 'Занятие для полноценной проработки тела...',
-      'Пилатес': 'Дыхательная практика с проработкой глубоких мышц...',
-      'Попа-пресс': 'Интенсивная тренировка на ягодицы и пресс...'
-    };
-
-    const map = {
-      'Укрепить тело': ['Барре','Боди-Балет'],
-      'Улучшить мобильность суставов': ['Растяжка'],
-      'Поправить осанку': ['Классическая хореография','Пилатес'],
-      'Убрать лишний вес': ['Барре','Боди-Балет'],
-      'Хочу танцевать': ['Классическая хореография']
-    };
-
     const show = id => {
       steps.forEach(s => document.getElementById(s).classList.remove('active'));
       document.getElementById(id).classList.add('active');
@@ -269,49 +253,63 @@
       };
     });
 
-    document.getElementById('next2').onclick = () => {
-      if (data.goal) {
-        populateDirs();
-        show('step-3');
-      }
-    };
     document.getElementById('chooseSelf').onclick = () => {
       data.goal = 'Самостоятельный выбор';
       populateDirs(true);
       show('step-3');
     };
 
+    document.getElementById('next2').onclick = () => data.goal && (populateDirs(), show('step-3'));
     document.getElementById('back2').onclick = () => show('step-1');
+
+    const directionDescriptions = {
+      'Классическая хореография': 'Почувствуйте себя настоящей балериной, занимаясь под классическую музыку. Это мягкая тренировка адаптированная для любителей, которая гармонично прорабатывает все тело. Ваши движения станут пластичными, осанка — королевской. Уже после первой тренировки вы почувствуете, как расправляются плечи. С накопительным эффектом — чем дольше занимаетесь, тем лучше сохраняется красивая осанка.',
+      'Партерная хореография': 'Эта тренировка начинается на полу, где прорабатывается выворотность, как у профессиональных балерин. После работы в партере встать к станку будет легче. Отлично подходит для развития гибкости и координации.',
+      'Барре': 'Энергичная тренировка у станка под современную музыку, направленная на развитие силы и рельефа. Основной акцент — на ягодицы и ноги: они станут подтянутыми и красивыми. За счёт ритмичности занятия вы получаете как силовую нагрузку, так и улучшение выносливости.',
+      'Боди-Балет': 'Кардио с элементами силовых упражнений. Отличный выбор, если ваша цель — похудение! Процесс жиросжигания идёт активно, мышцы подтягиваются, а тело становится стройнее. Вы укрепите все основные группы мышц, улучшите выносливость и получите заряд энергии.',
+      'Балетная подкачка': 'Самая интенсивная тренировка в формате круговой программы. Поэтапно задействуем все мышцы, создавая комплексную нагрузку. Результат — мощное укрепление и тонус всего тела.',
+      'Растяжка': 'Занятие для полноценной проработки тела без акцента на шпагат. Мы мягко тянем все мышцы — от шеи до стоп, уделяя внимание гибкости и улучшению подвижности суставов. Вы почувствуете лёгкость и расслабление в теле уже после первой тренировки.',
+      'Пилатес': 'Это дыхательная практика, где каждая минута тренировки посвящена правильному дыханию и проработке глубоких мышц, поддерживающих осанку и внутренние органы. Упражнения укрепляют всё тело, улучшая осанку, но за счёт деликатного подхода тренировка подходит всем уровням подготовки.'
+    };
 
     function populateDirs(showAll = false) {
       const cont = document.getElementById('options-dir');
       cont.innerHTML = '';
+      const map = {
+        'Укрепить тело': ['Барре','Боди-Балет'],
+        'Улучшить мобильность суставов': ['Растяжка'],
+        'Поправить осанку': ['Классическая хореография','Пилатес'],
+        'Убрать лишний вес': ['Барре','Боди-Балет'],
+        'Хочу танцевать': ['Классическая хореография'],
+      };
       const list = showAll ? Object.keys(directionDescriptions) : (map[data.goal] || []);
       list.forEach(val => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'option-wrapper';
-
         const d = document.createElement('div');
         d.className = 'option';
-        d.textContent = val;
         d.dataset.val = val;
+        d.textContent = val;
+
+        const btn = document.createElement('button');
+        btn.className = 'info-btn';
+        btn.textContent = 'i';
+        btn.onclick = e => {
+          e.stopPropagation();
+          const desc = d.querySelector('.description');
+          desc.style.display = desc.style.display === 'block' ? 'none' : 'block';
+        };
+        d.appendChild(btn);
+
+        const desc = document.createElement('div');
+        desc.className = 'description';
+        desc.textContent = directionDescriptions[val];
+        d.appendChild(desc);
+
         d.onclick = () => {
           document.querySelectorAll('#options-dir .option').forEach(o => o.classList.remove('selected'));
           d.classList.add('selected');
           data.direction = val;
         };
-
-        const infoBtn = document.createElement('button');
-        infoBtn.className = 'info-btn';
-        infoBtn.textContent = 'ℹ️';
-        infoBtn.onclick = (e) => {
-          e.stopPropagation();
-          alert(directionDescriptions[val]);
-        };
-
-        wrapper.appendChild(d);
-        wrapper.appendChild(infoBtn);
-        cont.appendChild(wrapper);
+        cont.appendChild(d);
       });
     }
 
@@ -335,12 +333,11 @@
     document.getElementById('submit').onclick = async () => {
       const resp = await fetch('/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegram_id: tg.initDataUnsafe.user?.id || '', ...data })
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ telegram_id: tg.initDataUnsafe.user.id, ...data })
       });
       const json = await resp.json();
-      if (json.ok) tg.close();
-      else alert('Ошибка отправки');
+      if (json.ok) tg.close(); else alert('Ошибка отправки');
     };
     document.getElementById('back5').onclick = () => show('step-4');
   </script>
