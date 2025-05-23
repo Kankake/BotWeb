@@ -104,11 +104,6 @@
       padding-right: 8px;
     }
 
-
-
-
-
-
     .description {
       font-size: 0.85rem;
       color: var(--text-muted);
@@ -133,7 +128,7 @@
     }
 
     .collapse-btn {
-      background: var(--text-dark);
+      background: var(--text-muted);
       border: none;
       border-radius: 4px;
       padding: 4px 6px;
@@ -212,6 +207,9 @@
       <div class="buttons">
         <button class="secondary" id="back5">Назад</button>
         <button class="primary" id="next5">Далее</button>
+      </div>
+      <div class="buttons" style="margin-top: 8px;">
+        <button class="more" id="weekBtn">Больше</button>
       </div>
     </div>
     <div id="step-6" class="card step">
@@ -314,127 +312,146 @@
       'Боди-Балет': 'Кардио с элементами силовых упражнений. Отличный выбор, если ваша цель — похудение! Процесс жиросжигания идёт активно, мышцы подтягиваются, а тело становится стройнее. Вы укрепите все основные группы мышц, улучшите выносливость и получите заряд энергии.',
       'Балетная подкачка': 'Самая интенсивная тренировка в формате круговой программы. Поэтапно задействуем все мышцы, создавая комплексную нагрузку. Результат — мощное укрепление и тонус всего тела.',
       'Растяжка': 'Занятие для полноценной проработки тела без акцента на шпагат. Мы мягко тянем все мышцы — от шеи до стоп, уделяя внимание гибкости и улучшению подвижности суставов. Вы почувствуете лёгкость и расслабление в теле уже после первой тренировки.',
-      'Пилатес': 'Это дыхательная практика, где каждая минута тренировки посвящена правильному дыханию и проработке глубоких мышц, поддерживающих осанку и внутренние органы. Упражнения укрепляют всё тело, улучшая osanку, но за счёт деликатного подхода тренировка подходит всем уровням подготовки.'
+      'Пилатес': 'Это дыхательная практика, где каждая минута тренировки посвящена правильному дыханию и проработке глубоких мышц, поддерживающих осанку и внутренние органы. Упражнения укрепляют всё тело, улучшая oсaнку, но за счёт деликатного подхода тренировка подходит всем уровням подготовки.'
     };
 
-    function populateDirs(showAll = false) {
-      const cont = document.getElementById('options-dir');
-      cont.innerHTML = '';
-      const map = {
-        'Укрепить тело': ['Барре', 'Боди-Балет'],
-        'Улучшить мобильность суставов': ['Растяжка'],
-        'Поправить осанку': ['Классическая хореография', 'Пилатес'],
-        'Убрать лишний вес': ['Барре', 'Боди-Балет'],
-        'Хочу танцевать': ['Классическая хореография']
-      };
-      const list = showAll ? Object.keys(directionDescriptions) : (map[data.goal] || []);
-      list.forEach(val => {
-        const d = document.createElement('div');
-        d.className = 'option';
-        d.style.flexDirection = 'column';
-        d.dataset.val = val;
+  // Обновленная функция populateDirs: исправлен показ описания, подсветка опции и кнопка скрыть
+function populateDirs(showAll = false) {
+  const cont = document.getElementById('options-dir');
+  cont.innerHTML = '';
+  // Включаем возможность скролла
+  cont.style.maxHeight = '60vh';
+  cont.style.overflowY = 'auto';
 
-        const topRow = document.createElement('div');
-        topRow.style.display = 'flex';
-        topRow.style.justifyContent = 'space-between';
-        topRow.style.width = '100%';
+  const map = {
+    'Укрепить тело': ['Барре', 'Боди-Балет'],
+    'Улучшить мобильность суставов': ['Растяжка'],
+    'Поправить осанку': ['Классическая хореография', 'Пилатес'],
+    'Убрать лишний вес': ['Барре', 'Боди-Балет'],
+    'Хочу танцевать': ['Классическая хореография']
+  };
+  const list = showAll ? Object.keys(directionDescriptions) : (map[data.goal] || []);
 
-        const span = document.createElement('span');
-        span.textContent = val;
+  list.forEach(val => {
+    const d = document.createElement('div');
+    d.className = 'option';
+    d.dataset.val = val;
+    if (data.direction === val) d.classList.add('selected');
 
-        const btn = document.createElement('button');
-        btn.className = 'info-btn';
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
-  <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-</svg>`;
+    // Вставляем HTML перенесенный в template для расширения
+    d.innerHTML = `
+      <span>${val}</span>
+      <button class="info-btn" title="Подробнее">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="description">${directionDescriptions[val] || ''}</div>
+      <button class="collapse-btn" title="Скрыть">Скрыть</button>
+    `;
 
-        topRow.append(span, btn);
+    const infoBtn = d.querySelector('.info-btn');
+    const desc = d.querySelector('.description');
+    const collapseBtn = d.querySelector('.collapse-btn');
+    // Скрываем описание и кнопку
+    desc.classList.remove('active');
+    collapseBtn.style.display = 'none';
 
-        const desc = document.createElement('div');
-        desc.className = 'description';
-        desc.textContent = directionDescriptions[val];
+    // Клик по info-btn — показываем описание и кнопку скрыть
+    infoBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      desc.classList.add('active');
+      collapseBtn.style.display = 'inline-block';
+      // Прокрутить к описанию
+      desc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
 
-        const collapse = document.createElement('button');
-        collapse.className = 'collapse-btn';
-        collapse.textContent = 'скрыть';
-        collapse.style.display = 'none';
+    // Кнопка скрыть — прячет описание и себя, возвращает info-btn
+    collapseBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      desc.classList.remove('active');
+      collapseBtn.style.display = 'none';
+    });
 
-        d.append(topRow, desc, collapse);
+    // Клик по опции — выделение
+    d.addEventListener('click', e => {
+      if (e.target.closest('.info-btn') || e.target.closest('.collapse-btn')) return;
+      document.querySelectorAll('#options-dir .option').forEach(o => o.classList.remove('selected'));
+      d.classList.add('selected');
+      data.direction = val;
+    });
 
-        btn.onclick = e => {
-          e.stopPropagation();
-          btn.style.display = 'none';
-          desc.classList.add('active');
-          collapse.style.display = 'block';
-        };
+    cont.appendChild(d);
+  });
+}
 
-        collapse.onclick = ev => {
-          ev.stopPropagation();
-          desc.classList.remove('active');
-          setTimeout(() => {
-            collapse.style.display = 'none';
-            btn.style.display = 'inline-block';
-          }, 300);
-        };
-
-        d.onclick = () => {
-          document.querySelectorAll('#options-dir .option').forEach(o => o.classList.remove('selected'));
-          d.classList.add('selected');
-          data.direction = val;
-        };
-
-        if (data.direction === val) d.classList.add('selected');
-        cont.appendChild(d);
-      });
-    }
-// 1. Находим кнопку "Хочу выбрать направление" и меняем её логику:
-document.getElementById('chooseSelf').onclick = () => {
+// Переназначение кнопки "Хочу выбрать направление"
+document.getElementById('chooseSelf').addEventListener('click', () => {
   data.goal = 'Самостоятельный выбор';
-  populateDirs(true); // показать все направления
+  populateDirs(true);
   show('step-3');
-};
+});
 
-async function fetchAndShowSlots() {
+// Инициализация при переходе из шага 2
+document.getElementById('next2').addEventListener('click', () => {
+  if (data.goal) {
+    populateDirs(false);
+    show('step-3');
+  }
+});
+
+const weekBtn = document.getElementById('weekBtn');
+
+// Добавляем обработчик клика, чтобы показать расписание на неделю
+weekBtn.addEventListener('click', () => {
+  fetchAndShowSlots(7); // теперь показываем 7 дней
+});
+
+async function fetchAndShowSlots(days = 3) {
   try {
-    const response = await fetch('data/schedules.json'); // путь к JSON
+    const response = await fetch('data/schedules.json');
     if (!response.ok) throw new Error('Ошибка сети');
 
-    const schedules = await response.json();
-    console.log('Полученные данные:', schedules);
+    // schedules.json — объект с ключами-адресами
+    const schedulesObj = await response.json();
+    const allSlots = schedulesObj[data.address] || [];
 
-    // Берём массив слотов для выбранного адреса
-    const slotsByAddress = schedules[data.address];
-    if (!slotsByAddress) {
-      alert('Для выбранного адреса нет расписания');
-      return;
+    const today = new Date();
+    const showDays = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      showDays.push(d.toISOString().slice(0, 10));
     }
-
-    // Фильтруем слоты по направлению
-    const availableSlots = slotsByAddress.filter(slot => slot.direction === data.direction);
 
     const cont = document.getElementById('options-slots');
     cont.innerHTML = '';
+    // Устанавливаем ограничения и скролл, если контент превышает
+    cont.style.maxHeight = '300px';
+    cont.style.overflowY = 'auto';
 
-    availableSlots.forEach(s => {
-      const b = document.createElement('div');
-      b.className = 'option';
-      b.textContent = `${s.date} ${s.time}`;
-      b.onclick = () => {
-        // Убираем выделение у всех
-        document.querySelectorAll('#options-slots .option').forEach(o => o.classList.remove('selected'));
-        // Выделяем текущий
-        b.classList.add('selected');
-        // Сохраняем выбранный слот
-        data.slot = `${s.date} ${s.time}`;
-      };
-      cont.appendChild(b);
+    showDays.forEach(day => {
+      const dateStr = new Date(day).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      allSlots
+        .filter(slot => slot.direction.trim() === data.direction.trim() && slot.date === day)
+        .forEach(s => {
+          const b = document.createElement('div');
+          b.className = 'option';
+          b.textContent = `${dateStr} — ${s.time}`;
+          b.onclick = () => {
+            document.querySelectorAll('#options-slots .option').forEach(o => o.classList.remove('selected'));
+            b.classList.add('selected');
+            data.slot = `${day}, ${s.time}`;
+          };
+          cont.appendChild(b);
+        });
     });
 
-    if (availableSlots.length > 0) {
-      show('step-5'); // показать следующий шаг (твоя функция)
+    if (!cont.hasChildNodes()) {
+      alert(`Нет доступных слотов на ближайшие ${days} дней`);
     } else {
-      alert('Нет доступных слотов для выбранного направления и адреса');
+      show('step-5');
     }
   } catch (error) {
     console.error('Ошибка загрузки расписания:', error);
