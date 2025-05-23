@@ -91,6 +91,25 @@ app.post('/slots', (req, res) => {
   res.json({ ok: true, slots });
 });
 
+const fs = require('fs');
+const path = require('path');
+
+app.get('/json', (_req, res) => {
+  const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      res.status(500).send('Ошибка чтения файла');
+      return;
+    }
+    try {
+      const jsonData = JSON.parse(data);
+      res.json(jsonData);
+    } catch (parseErr) {
+      res.status(500).send('Ошибка парсинга JSON');
+    }
+  });
+});
+
 // WebApp form submission endpoint
 app.post('/submit', async (req, res) => {
   try {
