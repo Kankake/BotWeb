@@ -212,15 +212,6 @@
         <button class="more" id="weekBtn">Больше</button>
       </div>
     </div>
-    <div id="step-6" class="card step">
-      <h1>Ваши контакты</h1>
-      <input type="text" id="name" placeholder="Имя" required>
-      <input type="tel" id="phone" placeholder="+7 (___) ___-__-__" required>
-      <div class="buttons">
-        <button class="secondary" id="back6">Назад</button>
-        <button class="primary" id="next6">Далее</button>
-      </div>
-    </div>
     <div id="step-7" class="card step">
       <h1>Проверьте данные</h1>
       <ul>
@@ -228,8 +219,6 @@
         <li><b>Направление:</b> <span id="sum-dir"></span></li>
         <li><b>Студия:</b> <span id="sum-address"></span></li>
         <li><b>Слот:</b> <span id="sum-slot"></span></li>
-        <li><b>Имя:</b> <span id="sum-name"></span></li>
-        <li><b>Телефон:</b> <span id="sum-phone"></span></li>
       </ul>
       <div class="buttons">
         <button class="secondary" id="back7">Назад</button>
@@ -238,7 +227,7 @@
     </div>
     <div id="step-8" class="card step">
       <h1>Готово!</h1>
-      <p>Спасибо! Ваша запись подтверждена.<br>До скорых встреч!</p>
+      <p>Спасибо! Подтвердите свою запись в телеграмме.<br>До скорых встреч!</p>
       <div class="buttons"><button class="primary" id="thankBtn">Закрыть</button></div>
     </div>
   </div>
@@ -246,7 +235,7 @@
   <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
-    const steps = ['step-1','step-2','step-3','step-4','step-5','step-6','step-7','step-8'];
+    const steps = ['step-1','step-2','step-3','step-4','step-5','step-7','step-8'];
     let data = {};
     const show = id => {
       steps.forEach(s => document.getElementById(s).classList.remove('active'));
@@ -279,25 +268,16 @@
     document.getElementById('next4').addEventListener('click', () => fetchAndShowSlots());
     // Step5
     document.getElementById('back5').addEventListener('click', () => show('step-4'));
-    document.getElementById('next5').addEventListener('click', () => data.slot ? show('step-6') : alert('Пожалуйста, выберите слот'));
-    // Step6
-    document.getElementById('back6').addEventListener('click', () => show('step-5'));
-    document.getElementById('next6').addEventListener('click', () => {
-      const name  = document.getElementById('name').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      if (!name || !phone) return alert('Пожалуйста, заполните оба поля');
-      data.name = name;
-      data.phone = phone;
+    document.getElementById('next5').addEventListener('click', () => {
       document.getElementById('sum-goal').textContent = data.goal;
       document.getElementById('sum-dir').textContent = data.direction;
       document.getElementById('sum-address').textContent = data.address;
       document.getElementById('sum-slot').textContent = data.slot;
-      document.getElementById('sum-name').textContent = data.name;
-      document.getElementById('sum-phone').textContent = data.phone;
       show('step-7');
     });
     // Step7
-    document.getElementById('back7').addEventListener('click', () => show('step-6'));
+    document.getElementById('back7').addEventListener('click', () => show('step-5'));
+    
     document.getElementById('submit7').addEventListener('click', async () => {
       const resp = await fetch('/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id: tg.initDataUnsafe.user.id, ...data }) });
       const res = await resp.json();
