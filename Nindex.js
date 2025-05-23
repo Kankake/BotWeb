@@ -112,7 +112,7 @@ app.post('/submit', async (req, res) => {
   try {
     const { telegram_id, goal, direction, address, name, phone, slot } = req.body;
     const targetChat = telegram_id; 
-    const msg = `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nСтудия: ${address}\nСлот: ${slot || 'не указан'}\nИмя: ${name}\nТелефон: ${phone}\nID: ${telegram_id}`;
+    const msg = `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nСтудия: ${address}\nСлот: ${slot || 'не указан'}\ID: ${telegram_id}`;
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
     await bot.telegram.sendMessage(
       targetChat,
