@@ -7,7 +7,7 @@ const { Telegraf, Markup } = require('telegraf');
 // Load config from .env
 const BOT_TOKEN     = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
-const WEBAPP_URL    = process.env.WEBAPP_URL;  // e.g. https://your-domain.com
+const WEBAPP_URL    = process.env.WEBAPP_URL; 
 const PORT          = process.env.PORT || 3000;
 const WEBHOOK_PATH  = '/tg-webhook';
 
@@ -111,13 +111,23 @@ app.get('/json', (_req, res) => {
 app.post('/submit', async (req, res) => {
   try {
     const { telegram_id, goal, direction, address, name, phone, slot } = req.body;
+    const targetChat = telegram_id; 
     const msg = `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nСтудия: ${address}\nСлот: ${slot || 'не указан'}\nИмя: ${name}\nТелефон: ${phone}\nID: ${telegram_id}`;
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
     await bot.telegram.sendMessage(
-      telegram_id,
+      targetChat,
       'Спасибо! Для подтверждения, пожалуйста, поделитесь контактом.',
-      Markup.keyboard([[ Markup.button.contactRequest('📲 Отправить контакт') ]])
-        .resize().oneTime()
+      {
+        reply_markup: {
+          keyboard: [
+            [
+              { text: '📲 Отправить контакт', request_contact: true }
+            ]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: true
+        }
+      }
     );
     return res.json({ ok: true });
   } catch (err) {
