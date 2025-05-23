@@ -15,7 +15,11 @@
       --accent-gold: #D4AF37;
       --btn-hover: #b5942c;
     }
-    * { box-sizing: border-box; margin: 0; padding: 2px; }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
     html, body { height: 100%; }
     body {
       background: var(--bg-light);
@@ -24,19 +28,40 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 0;
     }
-    .container { width: 100%; max-width: 400px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+    .logo {
+      display: block;
+      max-width: 400px;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 0;
+      z-index: 1;
+    }
+
+    .container {
+  width: 100%;
+  max-width: 400px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
     .card { background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; text-align: center; }
     h1 { font-size: 1.5rem; margin-bottom: 16px; color: var(--accent-gold); }
     p { font-size: 0.95rem; margin-bottom: 16px; line-height: 1.4; }
     .step { display: none; }
     .step.active { display: block; }
-    .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    
+    .option.selected { background: var(--accent-gold); color: #fff; }
+
     .option {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      position: relative;
+      display: block;
       padding: 12px;
       border: 2px solid var(--accent-gold);
       border-radius: 8px;
@@ -44,19 +69,86 @@
       background: var(--card-bg);
       color: var(--text-dark);
       font-weight: 500;
+      margin-bottom: 12px;
     }
-    .option.selected { background: var(--accent-gold); color: #fff; }
-    .info-btn, .collapse-btn {
+
+    .info-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+
+.info-btn svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-dark);
+}
+
+.info-btn:hover svg {
+  color: var(--accent-gold);
+}
+
+    .option span {
+      flex: 1;
+      padding-right: 8px;
+    }
+
+
+
+
+
+
+    .description {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: left;
+      line-height: 1.4;
+      background: #f9f9f9;
+      padding: 0;
+      border-radius: 6px;
+      width: 100%;
+      max-height: 0;
+      overflow: hidden;
+      transition: all 0.3s ease-in-out;
+      opacity: 0;
+      margin: 0;
+    }
+
+    .description.active {
+      padding: 10px;
+      max-height: 500px;
+      opacity: 1;
+      margin: 8px 0 4px;
+    }
+
+    .collapse-btn {
       background: #f0f0f0;
       border: none;
       border-radius: 4px;
-      padding: 2px 4px;
-      font-size: 0.75rem;
+      padding: 3px 8px;
+      font-size: 0.8rem;
       color: var(--text-dark);
       cursor: pointer;
-      width: auto;
+      width: fit-content;
+      white-space: nowrap;
+      margin-left: auto;
+      display: block;
+      margin-top: 6px;
     }
-    .description { margin-top: 8px; font-size: 0.85rem; color: var(--text-muted); display: none; text-align: left; }
+
+
+
     input, button { font-family: 'Roboto', sans-serif; }
     input[type="text"], input[type="tel"] { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
     .buttons { display: flex; gap: 12px; justify-content: center; }
@@ -71,6 +163,7 @@
   </style>
 </head>
 <body>
+  <img src="assets/levita.png" class="logo">
   <div class="container">
     <div id="step-1" class="card step active">
       <h1>Добро пожаловать!</h1>
@@ -240,37 +333,59 @@
       list.forEach(val => {
         const d = document.createElement('div');
         d.className = 'option';
+        d.style.flexDirection = 'column';
         d.dataset.val = val;
+
+        const topRow = document.createElement('div');
+        topRow.style.display = 'flex';
+        topRow.style.justifyContent = 'space-between';
+        topRow.style.width = '100%';
+
         const span = document.createElement('span');
         span.textContent = val;
+
         const btn = document.createElement('button');
         btn.className = 'info-btn';
-        btn.textContent = 'о направлении';
-        btn.onclick = e => {
-          e.stopPropagation();
-          btn.style.display = 'none';
-          const desc = d.querySelector('.description');
-          desc.style.display = 'block';
-          const collapse = document.createElement('button');
-          collapse.className = 'collapse-btn';
-          collapse.textContent = 'скрыть';
-          collapse.onclick = ev => {
-            ev.stopPropagation();
-            desc.style.display = 'none';
-            collapse.remove();
-            btn.style.display = 'inline-block';
-          };
-          d.appendChild(collapse);
-        };
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
+  <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>`;
+
+        topRow.append(span, btn);
+
         const desc = document.createElement('div');
         desc.className = 'description';
         desc.textContent = directionDescriptions[val];
-        d.append(span, btn, desc);
+
+        const collapse = document.createElement('button');
+        collapse.className = 'collapse-btn';
+        collapse.textContent = 'скрыть';
+        collapse.style.display = 'none';
+
+        d.append(topRow, desc, collapse);
+
+        btn.onclick = e => {
+          e.stopPropagation();
+          btn.style.display = 'none';
+          desc.classList.add('active');
+          collapse.style.display = 'block';
+        };
+
+        collapse.onclick = ev => {
+          ev.stopPropagation();
+          desc.classList.remove('active');
+          setTimeout(() => {
+            collapse.style.display = 'none';
+            btn.style.display = 'inline-block';
+          }, 300);
+        };
+
         d.onclick = () => {
           document.querySelectorAll('#options-dir .option').forEach(o => o.classList.remove('selected'));
           d.classList.add('selected');
           data.direction = val;
         };
+
         if (data.direction === val) d.classList.add('selected');
         cont.appendChild(d);
       });
