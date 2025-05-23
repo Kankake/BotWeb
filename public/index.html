@@ -287,11 +287,9 @@
     document.getElementById('next6').addEventListener('click', () => {
       const name  = document.getElementById('name').value.trim();
       const phone = document.getElementById('phone').value.trim();
-      nameInp.value = tg.initDataUnsafe.user.first_name + (tg.initDataUnsafe.user.last_name ? ' ' + tg.initDataUnsafe.user.last_name : '');
-      const n = nameInp.value.trim(), p = phoneInp.value.trim();
-      if (!n || !p) return alert('Пожалуйста, заполните оба поля');
-      data.name = n;
-      data.phone = p;
+      if (!name || !phone) return alert('Пожалуйста, заполните оба поля');
+      data.name = name;
+      data.phone = phone;
       document.getElementById('sum-goal').textContent = data.goal;
       document.getElementById('sum-dir').textContent = data.direction;
       document.getElementById('sum-address').textContent = data.address;
