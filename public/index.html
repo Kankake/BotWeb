@@ -278,15 +278,15 @@
       });
     });
     document.getElementById('back4').addEventListener('click', () => show('step-3'));
-    document.getElementById('next4').addEventListener('click', () => fetchSlots());
+    document.getElementById('next4').addEventListener('click', () => fetchAndShowSlots());
     // Step5
     document.getElementById('back5').addEventListener('click', () => show('step-4'));
     document.getElementById('next5').addEventListener('click', () => data.slot ? show('step-6') : alert('Пожалуйста, выберите слот'));
     // Step6
     document.getElementById('back6').addEventListener('click', () => show('step-5'));
     document.getElementById('next6').addEventListener('click', () => {
-      const nameInp = document.getElementById('name');
-      const phoneInp = document.getElementById('phone');
+      const name  = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
       nameInp.value = tg.initDataUnsafe.user.first_name + (tg.initDataUnsafe.user.last_name ? ' ' + tg.initDataUnsafe.user.last_name : '');
       const n = nameInp.value.trim(), p = phoneInp.value.trim();
       if (!n || !p) return alert('Пожалуйста, заполните оба поля');
@@ -396,31 +396,52 @@ document.getElementById('chooseSelf').onclick = () => {
   populateDirs(true); // показать все направления
   show('step-3');
 };
-function fetchSlots() {
-  fetch('/slots', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ direction: data.direction.trim(), address: data.address })
-  })
-  .then(r => r.json())
-  .then(res => {
-    if (res.ok && res.slots.length) {
-      const cont = document.getElementById('options-slots');
-      cont.innerHTML = '';
-      res.slots.forEach(s => {
-        const b = document.createElement('div');
-        b.className = 'option';
-        b.textContent = `${s.date} ${s.time}`;
-        b.onclick = () => {
-          document.querySelectorAll('#options-slots .option').forEach(o => o.classList.remove('selected'));
-          b.classList.add('selected');
-          data.slot = `${s.date} ${s.time}`;
-        };
-        cont.appendChild(b);
-      });
-      show('step-5');
-    } else alert('Нет доступных слотов.');
-  });
+
+async function fetchAndShowSlots() {
+  try {
+    const response = await fetch('data/schedules.json'); // путь к JSON
+    if (!response.ok) throw new Error('Ошибка сети');
+
+    const schedules = await response.json();
+    console.log('Полученные данные:', schedules);
+
+    // Берём массив слотов для выбранного адреса
+    const slotsByAddress = schedules[data.address];
+    if (!slotsByAddress) {
+      alert('Для выбранного адреса нет расписания');
+      return;
+    }
+
+    // Фильтруем слоты по направлению
+    const availableSlots = slotsByAddress.filter(slot => slot.direction === data.direction);
+
+    const cont = document.getElementById('options-slots');
+    cont.innerHTML = '';
+
+    availableSlots.forEach(s => {
+      const b = document.createElement('div');
+      b.className = 'option';
+      b.textContent = `${s.date} ${s.time}`;
+      b.onclick = () => {
+        // Убираем выделение у всех
+        document.querySelectorAll('#options-slots .option').forEach(o => o.classList.remove('selected'));
+        // Выделяем текущий
+        b.classList.add('selected');
+        // Сохраняем выбранный слот
+        data.slot = `${s.date} ${s.time}`;
+      };
+      cont.appendChild(b);
+    });
+
+    if (availableSlots.length > 0) {
+      show('step-5'); // показать следующий шаг (твоя функция)
+    } else {
+      alert('Нет доступных слотов для выбранного направления и адреса');
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки расписания:', error);
+    alert('Не удалось загрузить расписание');
+  }
 }
   </script>
 </body>
