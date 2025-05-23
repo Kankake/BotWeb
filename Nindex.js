@@ -91,9 +91,6 @@ app.post('/slots', (req, res) => {
   res.json({ ok: true, slots });
 });
 
-const fs = require('fs');
-const path = require('path');
-
 app.get('/json', (_req, res) => {
   const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
   fs.readFile(filePath, 'utf8', (err, data) => {
