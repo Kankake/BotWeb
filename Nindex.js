@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
 const { Telegraf, Markup } = require('telegraf');
 
 // Load config from .env
@@ -100,7 +100,6 @@ bot.hears('🖥️ Запись онлайн', ctx => {
 });
 
 const XLSX = require('xlsx');
-const fs = require('fs').promises;
 
 async function updateScheduleFromExcel(filePath) {
   const workbook = XLSX.readFile(filePath);
