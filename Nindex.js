@@ -1,15 +1,23 @@
-require('dotenv').config();
-const express = require('express');
-const path = require('path');
-const fs = require('fs').promises;
-const { Telegraf, Markup } = require('telegraf');
+import dotenv from 'dotenv';
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs/promises';
+import { Telegraf, Markup } from 'telegraf';
+import XLSX from 'xlsx';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config();
 
 // Load config from .env
-const BOT_TOKEN     = process.env.BOT_TOKEN;
+const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
-const WEBAPP_URL    = process.env.WEBAPP_URL;
-const PORT          = process.env.PORT || 3000;
-const WEBHOOK_PATH  = '/tg-webhook';
+const WEBAPP_URL = process.env.WEBAPP_URL;
+const PORT = process.env.PORT || 3000;
+const WEBHOOK_PATH = '/tg-webhook';
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
@@ -20,7 +28,8 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
 let schedules = {};
 try {
   const dataPath = path.join(__dirname, 'data', 'schedules.json');
-  schedules = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+  const data = await fs.readFile(dataPath, 'utf8');
+  schedules = JSON.parse(data);
   console.log('✅ Loaded schedules from data/schedules.json');
 } catch (err) {
   console.error('❌ Failed to load schedules.json:', err);
@@ -30,20 +39,47 @@ try {
 const bot = new Telegraf(BOT_TOKEN);
 
 // Set up menu commands
-(async () => {
-  try {
-    await bot.telegram.setMyCommands([
-      { command: 'start',    description: 'Начать заново' },
-      { command: 'contacts', description: 'Контакты студии' }
-    ]);
-    await bot.telegram.setChatMenuButton('default', { type: 'commands' });
-  } catch (err) {
-    console.error('Не удалось установить команды меню:', err);
-  }
-})();
+try {
+  await bot.telegram.setMyCommands([
+    { command: 'start', description: 'Начать заново' },
+    { command: 'contacts', description: 'Контакты студии' },
+    { command: 'update_schedule', description: 'Обновить расписание (админ)' }
+  ]);
+  await bot.telegram.setChatMenuButton('default', { type: 'commands' });
+} catch (err) {
+  console.error('Не удалось установить команды меню:', err);
+}
 
-// === Bot Handlers ===
+// Update schedule function
+async function updateScheduleFromExcel(filePath) {
+  const workbook = XLSX.readFile(filePath);
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(sheet);
+  
+  const schedules = {};
+  
+  data.forEach(row => {
+    if (!schedules[row.address]) {
+      schedules[row.address] = [];
+    }
+    
+    schedules[row.address].push({
+      direction: row.direction,
+      date: row.date,
+      time: row.time,
+      address: row.address
+    });
+  });
 
+  await fs.writeFile(
+    path.join(__dirname, 'data', 'schedules.json'),
+    JSON.stringify(schedules, null, 2)
+  );
+  
+  return schedules;
+}
+
+// Bot Handlers
 bot.start(ctx => {
   ctx.reply(
     'Выберите действие:',
@@ -61,6 +97,33 @@ bot.command('contacts', ctx => {
 Видова 210Д — 8-928-00-00-000
 Дзержинского 211/2 — 8-928-00-00-000`
   );
+});
+
+bot.command('update_schedule', async (ctx) => {
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return;
+  }
+  ctx.reply('Отправьте Excel файл с расписанием');
+});
+
+bot.on('document', async (ctx) => {
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return;
+  }
+
+  try {
+    const file = await ctx.telegram.getFile(ctx.message.document.file_id);
+    const filePath = path.join(__dirname, 'temp.xlsx');
+    
+    await ctx.telegram.downloadFile(file.file_id, filePath);
+    schedules = await updateScheduleFromExcel(filePath);
+    
+    await fs.unlink(filePath);
+    
+    ctx.reply('✅ Расписание успешно обновлено!');
+  } catch (error) {
+    ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
+  }
 });
 
 bot.hears('Контакты', ctx => {
@@ -99,80 +162,12 @@ bot.hears('🖥️ Запись онлайн', ctx => {
   );
 });
 
-const XLSX = require('xlsx');
-
-async function updateScheduleFromExcel(filePath) {
-  const workbook = XLSX.readFile(filePath);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json(sheet);
-  
-  const schedules = {};
-  
-  // Transform Excel data to required format
-  data.forEach(row => {
-    if (!schedules[row.address]) {
-      schedules[row.address] = [];
-    }
-    
-    schedules[row.address].push({
-      direction: row.direction,
-      date: row.date,
-      time: row.time
-    });
-  });
-
-  // Save to JSON file
-  await fs.writeFile(
-    path.join(__dirname, 'data', 'schedules.json'),
-    JSON.stringify(schedules, null, 2)
-  );
-  
-  return schedules;
-}
-
-// Add new admin command
-bot.command('update_schedule', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    return;
-  }
-
-  ctx.reply('Отправьте Excel файл с расписанием');
-});
-// Update menu commands
-await bot.telegram.setMyCommands([
-  { command: 'start',    description: 'Начать заново' },
-  { command: 'contacts', description: 'Контакты студии' },
-  { command: 'update_schedule', description: 'Обновить расписание (админ)' }
-]);
-
-// Handle document (Excel file) upload
-bot.on('document', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    return;
-  }
-
-  try {
-    const file = await ctx.telegram.getFile(ctx.message.document.file_id);
-    const filePath = path.join(__dirname, 'temp.xlsx');
-    
-    await ctx.telegram.downloadFile(file.file_id, filePath);
-    schedules = await updateScheduleFromExcel(filePath);
-    
-    await fs.unlink(filePath); // Clean up temp file
-    
-    ctx.reply('✅ Расписание успешно обновлено!');
-  } catch (error) {
-    ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
-  }
-});
-
-
-// === Express App ===
+// Express App
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Endpoint to retrieve slots
+// Endpoints
 app.post('/slots', (req, res) => {
   const { direction, address } = req.body;
   const today = new Date();
@@ -193,22 +188,16 @@ app.post('/slots', (req, res) => {
   res.json({ ok: true, slots });
 });
 
-app.get('/json', (_req, res) => {
-  const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      res.status(500).send('Ошибка чтения файла');
-      return;
-    }
-    try {
-      res.json(JSON.parse(data));
-    } catch {
-      res.status(500).send('Ошибка парсинга JSON');
-    }
-  });
+app.get('/json', async (_req, res) => {
+  try {
+    const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
+    const data = await fs.readFile(filePath, 'utf8');
+    res.json(JSON.parse(data));
+  } catch (err) {
+    res.status(500).send('Ошибка чтения или парсинга файла');
+  }
 });
 
-// WebApp form submission endpoint
 app.post('/submit', async (req, res) => {
   try {
     const { telegram_id, goal, direction, address, name, phone, slot } = req.body;
@@ -255,5 +244,5 @@ app.listen(PORT, async () => {
 });
 
 // Graceful shutdown
-process.once('SIGINT',  () => bot.stop('SIGINT'));
+process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
