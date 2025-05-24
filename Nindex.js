@@ -99,6 +99,75 @@ bot.hears('🖥️ Запись онлайн', ctx => {
   );
 });
 
+const XLSX = require('xlsx');
+const fs = require('fs').promises;
+
+async function updateScheduleFromExcel(filePath) {
+  const workbook = XLSX.readFile(filePath);
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(sheet);
+  
+  const schedules = {};
+  
+  // Transform Excel data to required format
+  data.forEach(row => {
+    if (!schedules[row.address]) {
+      schedules[row.address] = [];
+    }
+    
+    schedules[row.address].push({
+      direction: row.direction,
+      date: row.date,
+      time: row.time
+    });
+  });
+
+  // Save to JSON file
+  await fs.writeFile(
+    path.join(__dirname, 'data', 'schedules.json'),
+    JSON.stringify(schedules, null, 2)
+  );
+  
+  return schedules;
+}
+
+// Add new admin command
+bot.command('update_schedule', async (ctx) => {
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return;
+  }
+
+  ctx.reply('Отправьте Excel файл с расписанием');
+});
+// Update menu commands
+await bot.telegram.setMyCommands([
+  { command: 'start',    description: 'Начать заново' },
+  { command: 'contacts', description: 'Контакты студии' },
+  { command: 'update_schedule', description: 'Обновить расписание (админ)' }
+]);
+
+// Handle document (Excel file) upload
+bot.on('document', async (ctx) => {
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return;
+  }
+
+  try {
+    const file = await ctx.telegram.getFile(ctx.message.document.file_id);
+    const filePath = path.join(__dirname, 'temp.xlsx');
+    
+    await ctx.telegram.downloadFile(file.file_id, filePath);
+    schedules = await updateScheduleFromExcel(filePath);
+    
+    await fs.unlink(filePath); // Clean up temp file
+    
+    ctx.reply('✅ Расписание успешно обновлено!');
+  } catch (error) {
+    ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
+  }
+});
+
+
 // === Express App ===
 const app = express();
 app.use(express.json());
