@@ -14,6 +14,8 @@
       --text-muted: #555555;
       --accent-gold: #D4AF37;
       --btn-hover: #b5942c;
+      --card-radius: 12px;
+      --gap: 12px;
     }
     * { 
       box-sizing: border-box; 
@@ -29,6 +31,22 @@
       align-items: center;
       justify-content: center;
       padding: 0;
+    }
+.contact-us p { font-size: 1rem; color: var(--text-dark); margin-bottom: 8px; }
+.contact-us {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 400px;
+      background: var(--card-bg);
+      z-index: 100;
+      padding-top: var(--gap);
+      padding-bottom: var(--gap);
+    }
+    .contact-us .buttons {
+      justify-content: center;
     }
 
     .logo {
@@ -234,7 +252,7 @@
       <p>Связаться с нами:</p>
       <div class="buttons">
         <a href="https://t.me/SerenkoKonstantin" target="_blank" class="primary">Телеграм</a>
-        <a href="https://api.whatsapp.com/send?phone=+79996363640" target="_blank" class="primary">WhatsApp</a>
+        <a href="https://clck.ru/3MFEqd" target="_blank" class="primary">WhatsApp</a>
       </div>
     </div>
   </div>
