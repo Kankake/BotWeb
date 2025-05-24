@@ -32,7 +32,7 @@
       justify-content: center;
       padding: 0;
     }
-    .contact-us {
+     .contact-us {
       position: fixed;
       bottom: 0;
       left: 50%;
@@ -41,12 +41,15 @@
       max-width: 400px;
       background: var(--card-bg);
       z-index: 100;
-      padding-top: var(--gap);
-      padding-bottom: var(--gap);
+      padding: var(--gap);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .contact-us .buttons {
-      justify-content: center;
-    }
+     .contact-us p { font-size: 1rem; color: var(--text-dark); margin-bottom: 8px; }
+    /* Новые стили для закрепления блока снизу */
+    .contact-us {
+      position: fixed;
 
     .logo {
       display: block;
@@ -247,6 +250,7 @@
       <p>Спасибо! Подтвердите свою запись в телеграмме.<br>До скорых встреч!</p>
       <div class="buttons"><button class="primary" id="thankBtn">Закрыть</button></div>
     </div>
+  </div>
 <div class="card contact-us">
       <p>Связаться с нами:</p>
       <div class="buttons">
@@ -254,7 +258,6 @@
         <a href="https://clck.ru/3MFEqd" target="_blank" class="primary">WhatsApp</a>
       </div>
     </div>
-  </div>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     const tg = window.Telegram.WebApp;
