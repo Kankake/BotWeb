@@ -38,6 +38,17 @@ await bot.telegram.setChatMenuButton('default', {
 });
 
 // === Bot Handlers ===
+// Initialize bot
+const bot = new Telegraf(BOT_TOKEN);
+
+// === Bot Handlers ===
+// Меню-команды
+await bot.telegram.setMyCommands([
+  { command: 'start',    description: 'Начать заново' },
+  { command: 'contacts', description: 'Контакты студии' }
+]);
+await bot.telegram.setChatMenuButton('default', { type: 'commands' });
+
 bot.start(ctx => {
   ctx.reply(
     'Выберите действие:',
@@ -57,7 +68,6 @@ bot.command('contacts', ctx => {
   );
 });
 
-// чтобы кнопка тоже срабатывала без слэша
 bot.hears('Контакты', ctx => ctx.invoke('contacts'));
 
 bot.hears('📞 Запись по звонку администратора', ctx => {
