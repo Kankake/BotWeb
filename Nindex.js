@@ -7,7 +7,7 @@ const { Telegraf, Markup } = require('telegraf');
 // Load config from .env
 const BOT_TOKEN     = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
-const WEBAPP_URL    = process.env.WEBAPP_URL; 
+const WEBAPP_URL    = process.env.WEBAPP_URL;
 const PORT          = process.env.PORT || 3000;
 const WEBHOOK_PATH  = '/tg-webhook';
 
@@ -27,33 +27,22 @@ try {
 }
 
 // Initialize bot
-bot.telegram
-  .setMyCommands([
-    { command: 'start',    description: 'Начать заново' },
-    { command: 'contacts', description: 'Контакты студии' }
-  ])
-  .catch(err => console.error('Не удалось setMyCommands:', err));
-
-bot.telegram
-  .setChatMenuButton('default', { type: 'commands' })
-  .catch(err => console.error('Не удалось setChatMenuButton:', err));
-
-// === Bot Handlers ===
-// Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 
-// === Bot Handlers ===
-// Меню-команды
-bot.telegram
-  .setMyCommands([
-    { command: 'start',    description: 'Начать заново' },
-    { command: 'contacts', description: 'Контакты студии' }
-  ])
-  .catch(console.error);
+// Set up menu commands
+(async () => {
+  try {
+    await bot.telegram.setMyCommands([
+      { command: 'start',    description: 'Начать заново' },
+      { command: 'contacts', description: 'Контакты студии' }
+    ]);
+    await bot.telegram.setChatMenuButton('default', { type: 'commands' });
+  } catch (err) {
+    console.error('Не удалось установить команды меню:', err);
+  }
+})();
 
-bot.telegram
-  .setChatMenuButton('default', { type: 'commands' })
-  .catch(console.error);
+// === Bot Handlers ===
 
 bot.start(ctx => {
   ctx.reply(
@@ -74,13 +63,21 @@ bot.command('contacts', ctx => {
   );
 });
 
-bot.hears('Контакты', ctx => ctx.invoke('contacts'));
+bot.hears('Контакты', ctx => {
+  ctx.reply(
+    `Связь с ресепшн студии:
+Свободы 6 — 8-928-00-00-000
+Видова 210Д — 8-928-00-00-000
+Дзержинского 211/2 — 8-928-00-00-000`
+  );
+});
 
 bot.hears('📞 Запись по звонку администратора', ctx => {
   ctx.reply(
     'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
     Markup.keyboard([[ Markup.button.contactRequest('📲 Отправить контакт') ]])
-      .resize().oneTime()
+      .resize()
+      .oneTime()
   );
 });
 
@@ -114,17 +111,17 @@ app.post('/slots', (req, res) => {
   console.log('REQUEST direction:', direction, '| address:', address);
   const arr = schedules[address] || [];
   console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
-  const slots = arr.filter(slot => {
-    const d = new Date(slot.date);
-    const diff = (d - today) / (1000 * 60 * 60 * 24);
-    // Логируем результат сравнения
-    const match = slot.direction.trim() === direction.trim();
-    if (match && diff >= 0 && diff < 3) {
-      console.log('MATCH:', slot.direction, '|', direction, '|', slot.date, slot.time);
-    }
-    return match && diff >= 0 && diff < 3;
-  })
-  .map(slot => ({ date: slot.date, time: slot.time }));
+  const slots = arr
+    .filter(slot => {
+      const d = new Date(slot.date);
+      const diff = (d - today) / (1000 * 60 * 60 * 24);
+      const match = slot.direction.trim() === direction.trim();
+      if (match && diff >= 0 && diff < 3) {
+        console.log('MATCH:', slot.direction, '|', direction, '|', slot.date, slot.time);
+      }
+      return match && diff >= 0 && diff < 3;
+    })
+    .map(slot => ({ date: slot.date, time: slot.time }));
   res.json({ ok: true, slots });
 });
 
@@ -136,9 +133,8 @@ app.get('/json', (_req, res) => {
       return;
     }
     try {
-      const jsonData = JSON.parse(data);
-      res.json(jsonData);
-    } catch (parseErr) {
+      res.json(JSON.parse(data));
+    } catch {
       res.status(500).send('Ошибка парсинга JSON');
     }
   });
@@ -148,28 +144,28 @@ app.get('/json', (_req, res) => {
 app.post('/submit', async (req, res) => {
   try {
     const { telegram_id, goal, direction, address, name, phone, slot } = req.body;
-    const targetChat = telegram_id; 
-    const msg = `Новая онлайн-заявка:\nЦель: ${goal}\nНаправление: ${direction}\nСтудия: ${address}\nСлот: ${slot || 'не указан'}\ID: ${telegram_id}`;
+    const msg = `Новая онлайн-заявка:
+Цель: ${goal}
+Направление: ${direction}
+Студия: ${address}
+Слот: ${slot || 'не указан'}
+ID: ${telegram_id}`;
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
     await bot.telegram.sendMessage(
-      targetChat,
+      telegram_id,
       'Спасибо! Для подтверждения, пожалуйста, поделитесь контактом.',
       {
         reply_markup: {
-          keyboard: [
-            [
-              { text: '📲 Отправить контакт', request_contact: true }
-            ]
-          ],
+          keyboard: [[{ text: '📲 Отправить контакт', request_contact: true }]],
           resize_keyboard: true,
           one_time_keyboard: true
         }
       }
     );
-    return res.json({ ok: true });
+    res.json({ ok: true });
   } catch (err) {
     console.error('Error in /submit:', err);
-    return res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
@@ -191,5 +187,5 @@ app.listen(PORT, async () => {
 });
 
 // Graceful shutdown
-process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGINT',  () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
