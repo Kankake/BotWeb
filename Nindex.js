@@ -27,15 +27,16 @@ try {
 }
 
 // Initialize bot
-const bot = new Telegraf(BOT_TOKEN);
+bot.telegram
+  .setMyCommands([
+    { command: 'start',    description: 'Начать заново' },
+    { command: 'contacts', description: 'Контакты студии' }
+  ])
+  .catch(err => console.error('Не удалось setMyCommands:', err));
 
-await bot.telegram.setMyCommands([
-  { command: 'start',    description: 'Начать заново' },
-  { command: 'contacts', description: 'Контакты студии' }
-]);
-await bot.telegram.setChatMenuButton('default', {
-  type: 'commands'
-});
+bot.telegram
+  .setChatMenuButton('default', { type: 'commands' })
+  .catch(err => console.error('Не удалось setChatMenuButton:', err));
 
 // === Bot Handlers ===
 // Initialize bot
