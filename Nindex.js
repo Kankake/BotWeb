@@ -43,11 +43,16 @@ const bot = new Telegraf(BOT_TOKEN);
 
 // === Bot Handlers ===
 // Меню-команды
-await bot.telegram.setMyCommands([
-  { command: 'start',    description: 'Начать заново' },
-  { command: 'contacts', description: 'Контакты студии' }
-]);
-await bot.telegram.setChatMenuButton('default', { type: 'commands' });
+bot.telegram
+  .setMyCommands([
+    { command: 'start',    description: 'Начать заново' },
+    { command: 'contacts', description: 'Контакты студии' }
+  ])
+  .catch(console.error);
+
+bot.telegram
+  .setChatMenuButton('default', { type: 'commands' })
+  .catch(console.error);
 
 bot.start(ctx => {
   ctx.reply(
