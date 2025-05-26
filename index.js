@@ -154,13 +154,16 @@ bot.hears('Да', async ctx => {
 
 bot.hears('Нет, ввести другое имя', async ctx => {
   await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+});
+
+// Add new handler for any text message after requesting custom name
+bot.on('text', async ctx => {
+  const customName = ctx.message.text;
   
-  bot.once('text', async ctx2 => {
-    const customName = ctx2.message.text;
+  if (customName !== 'Нет, ввести другое имя') {
+    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
     
-    await ctx2.replyWithPhoto({ source: NEXT_PHOTO });
-    
-    await ctx2.reply(
+    await ctx.reply(
       `Приятно познакомиться, ${customName}!`,
       Markup.keyboard([
         ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
@@ -168,8 +171,9 @@ bot.hears('Нет, ввести другое имя', async ctx => {
       ])
       .resize()
     );
-  });
+  }
 });
+
 
 bot.command('contacts', ctx => {
   ctx.reply(
