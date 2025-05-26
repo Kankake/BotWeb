@@ -23,6 +23,7 @@ const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
+
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
   process.exit(1);
@@ -124,10 +125,32 @@ async function updateScheduleFromExcel(filePath) {
   return schedules;
 }
 bot.start(async ctx => {
-  const firstName = ctx.from.first_name || '';
-  
+  const firstName = ctx.from.first_name || 'клиент';
+  const chatId = ctx.chat.id;
   // Send welcome photo first
+  if (pendingReminders.has(chatId)) {
+      const { t15, t24 } = pendingReminders.get(chatId);
+      clearTimeout(t15);
+      clearTimeout(t24);
+    }
+  
+    const t15 = setTimeout(() => {
+    bot.telegram.sendMessage(
+      chatId,
+      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`
+    );
+  }, 60 * 1000);
+  const t24 = setTimeout(() => {
+      bot.telegram.sendMessage(
+        chatId, 
+        `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`
+      );
+    }, 24 * 60 * 60 * 1000);
+
+  pendingReminders.set(chatId, { t15, t24 });
+
   await ctx.replyWithPhoto({ source: WELCOME_PHOTO });
+  
   
   await ctx.reply(
     `Приветствую, наш будущий клиент!\n` +
