@@ -127,20 +127,22 @@
   }
 }
     .info-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-}
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      border: none;
+      padding: 2px;
+      cursor: pointer;
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+    }
+
 
 
 .info-btn svg {
@@ -181,21 +183,29 @@
       margin: 8px 0 4px;
     }
 
+    .description.active + .collapse-btn {
+      display: inline-block;
+    }
+
+    .description.active ~ .info-btn {
+      display: none;
+    }
+
     .collapse-btn {
       background: var(--text-muted);
       border: none;
       border-radius: 4px;
-      padding: 4px 6px;
-      font-size: 0.8rem;
+      padding: 1px 6px;       /* минимальный вертикальный и чуть побольше горизонтальный отступ */
+      font-size: 0.7rem;      /* чуть меньше шрифт */
       color: var(--card-bg);
-      justify-content: center;
       cursor: pointer;
-      width: fit-content;
+      display: inline-block;
       white-space: nowrap;
-      margin-left: auto;
-      display: block;
-      margin-top: 8px;
+      line-height: 1;         /* убираем лишний «воздух» по высоте */
+      margin: 4px 0 0 auto;
     }
+
+
     .collapse-btn:hover { background: var(--btn-hover); }
 
     input, button { font-family: 'Roboto', sans-serif; }
@@ -204,6 +214,12 @@
     button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: 500; -webkit-appearance: none;
   min-height: 44px;
   touch-action: manipulation;}
+    .collapse-btn {
+      min-height: 0 !important;
+      padding: 4px 8px !important;
+      font-size: 0.75rem !important;
+      line-height: 1.5 !important;
+    }
     .primary { background: var(--accent-gold); color: #fff; }
     .primary:hover { background: var(--btn-hover); }
     .secondary { background: var(--text-muted); color: #fff; }
@@ -232,6 +248,7 @@
         <div class="option" data-val="Убрать лишний вес">Убрать лишний вес</div>
         <div class="option" data-val="Хочу танцевать">Хочу танцевать</div>
         <div class="option" id="chooseSelf" data-val="Самостоятельный выбор">Хочу выбрать направление сама</div>
+
       </div>
       <div class="buttons">
         <button class="secondary" id="back2">Назад</button>
@@ -286,7 +303,7 @@
     </div>
     <div id="step-7" class="card step">
       <div style="margin-bottom: 16px;">
-        <b style="align-content: center; color: var(--accent-gold); font-size: 1.3ic;">Не забудьте с собой взять форму и хорошее настроение!</b>
+        <b style="align-content: center; color: #505050; font-size: 1.3ic;">Не забудьте с собой взять форму и хорошее настроение!</b>
       </div>
       <ul>
         <li><b>Цель:</b> <span id="sum-goal"></span></li>
@@ -333,7 +350,21 @@
       });
     });
     document.getElementById('back2').addEventListener('click', () => show('step-1'));
-    document.getElementById('next2').addEventListener('click', () => data.goal && (populateDirs(), show('step-3')));
+    document.getElementById('next2').addEventListener('click', () => {
+      if (!data.goal) {
+        alert('Пожалуйста, выберите цель');
+        return;
+      }
+      // если выбрали самостоятельный выбор — показываем все направления
+      if (data.goal === 'Самостоятельный выбор') {
+        populateDirs(true);
+      } else {
+        populateDirs(false);
+      }
+      show('step-3');
+    });
+
+
     // Step3
     document.getElementById('back3').addEventListener('click', () => show('step-2'));
     document.getElementById('next3').addEventListener('click', () => data.direction && show('step-4'));
@@ -350,6 +381,11 @@
     // Step5
     document.getElementById('back5').addEventListener('click', () => show('step-4'));
     document.getElementById('next5').addEventListener('click', () => {
+    if (!data.slot) {
+      alert('Пожалуйста, выберите дату для записи');
+      return;
+    }
+  
       document.getElementById('sum-goal').textContent = data.goal;
       document.getElementById('sum-dir').textContent = data.direction;
       document.getElementById('sum-address').textContent = data.address;
@@ -430,7 +466,7 @@ function populateDirs(showAll = false) {
       e.stopPropagation();
       desc.classList.add('active');
       collapseBtn.style.display = 'inline-block';
-      // Прокрутить к описанию
+      infoBtn.style.display = 'none';
       desc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
@@ -439,6 +475,7 @@ function populateDirs(showAll = false) {
       e.stopPropagation();
       desc.classList.remove('active');
       collapseBtn.style.display = 'none';
+      infoBtn.style.display = 'flex';
     });
 
     // Клик по опции — выделение
@@ -452,21 +489,6 @@ function populateDirs(showAll = false) {
     cont.appendChild(d);
   });
 }
-
-// Переназначение кнопки "Хочу выбрать направление"
-document.getElementById('chooseSelf').addEventListener('click', () => {
-  data.goal = 'Самостоятельный выбор';
-  populateDirs(true);
-  show('step-3');
-});
-
-// Инициализация при переходе из шага 2
-document.getElementById('next2').addEventListener('click', () => {
-  if (data.goal) {
-    populateDirs(false);
-    show('step-3');
-  }
-});
 
 const weekBtn = document.getElementById('weekBtn');
 
