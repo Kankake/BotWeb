@@ -25,6 +25,25 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   process.exit(1);
 }
 
+// Add after imports
+const initDataDir = async () => {
+  const dataDir = path.join(__dirname, 'data');
+  try {
+    await fs.access(dataDir);
+  } catch {
+    await fs.mkdir(dataDir, { recursive: true });
+  }
+  
+  const schedulesPath = path.join(dataDir, 'schedules.json');
+  try {
+    await fs.access(schedulesPath);
+  } catch {
+    await fs.writeFile(schedulesPath, '{}');
+  }
+};
+
+await initDataDir();
+
 // Load monthly-updatable schedule from JSON file
 let schedules = {};
 try {
