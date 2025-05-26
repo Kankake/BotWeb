@@ -115,7 +115,7 @@ bot.command('update_schedule', async (ctx) => {
 });
 
 bot.on('document', async (ctx) => {
-  if (!ADMIN_CHAT_IDS.includes(ctx.chat.id.toString())) {
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
     return;
   }
 
