@@ -57,6 +57,9 @@ try {
 
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
+const pendingReminders = new Map();
+
+
 bot.command('check_data', async (ctx) => {
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
   
@@ -117,7 +120,9 @@ async function updateScheduleFromExcel(filePath) {
   
   return schedules;
 }
-
+bot.start(async ctx => {
+  const chatId = ctx.chat.id;
+  const firstName = ctx.from.first_name || 'клиент';
 // Bot Handlers
 bot.start(ctx => {
   ctx.reply(
@@ -188,6 +193,16 @@ bot.hears('📞 Запись по звонку администратора', ct
 });
 
 bot.on('contact', async ctx => {
+  const chatId = ctx.chat.id;
+  
+  // Clear reminders if exist
+  if (pendingReminders.has(chatId)) {
+    const { t15, t24 } = pendingReminders.get(chatId);
+    clearTimeout(t15);
+    clearTimeout(t24);
+    pendingReminders.delete(chatId);
+  }
+
   const { first_name, phone_number } = ctx.message.contact;
   const telegram_id = ctx.from.id;
   
@@ -336,4 +351,4 @@ process.once('SIGTERM', () => {
   if (bot.isRunning) {
     bot.stop('SIGTERM')
   }
-});
+})})
