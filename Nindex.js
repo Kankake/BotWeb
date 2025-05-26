@@ -27,7 +27,7 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
 
 // Add after imports
 const initDataDir = async () => {
-  const dataDir = path.join(__dirname, 'data');
+  const dataDir = process.env.PERSISTENT_DIR || path.join(__dirname, 'data');
   try {
     await fs.access(dataDir);
   } catch {
