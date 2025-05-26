@@ -207,9 +207,9 @@ app.get('/json', async (_req, res) => {
 
 app.post('/submit', async (req, res) => {
   try {
-    const { telegram_id, goal, direction, address, name, phone, slot } = req.body;
+    const bookingData = req.body;
     await bot.telegram.sendMessage(
-      telegram_id,
+      bookingData.telegram_id,
       'Спасибо! Для подтверждения, пожалуйста, поделитесь контактом.',
       {
         reply_markup: {
@@ -219,7 +219,20 @@ app.post('/submit', async (req, res) => {
         }
       }
     );
-    const msg = `Новая онлайн-заявка:
+    
+    await sendBookingToAdmin(bookingData);
+    res.json({ ok: true });
+    
+  } catch (err) {
+    console.error('Error in /submit:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+async function sendBookingToAdmin(bookingData) {
+  const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
+  
+  const msg = `Новая онлайн-заявка:
     Цель: ${goal}
     Направление: ${direction}
     Студия: ${address}
@@ -227,12 +240,9 @@ app.post('/submit', async (req, res) => {
     Имя: ${name}
     Телефон: ${phone}
     ID: ${telegram_id}`;
-    res.json({ ok: true  }, await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg));
-  } catch (err) {
-    console.error('Error in /submit:', err);
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
+    
+  return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
+}
 
 // Telegram webhook callback
 app.use(bot.webhookCallback(WEBHOOK_PATH));
