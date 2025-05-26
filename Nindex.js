@@ -55,24 +55,33 @@ try {
   console.error('❌ Failed to load schedules.json:', err);
 }
 
-// Create name scene
+// Create name scene with logging
 const nameScene = new Scenes.BaseScene('name-scene');
 
 nameScene.enter(async (ctx) => {
+  console.log('Entering name scene');
   await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
 });
 
 nameScene.on('text', async (ctx) => {
+  console.log('Received text in name scene:', ctx.message.text);
   const customName = ctx.message.text;
-  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  await ctx.reply(
-    `Приятно познакомиться, ${customName}!`,
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ])
-    .resize()
-  );
+  
+  try {
+    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+    await ctx.reply(
+      `Приятно познакомиться, ${customName}!`,
+      Markup.keyboard([
+        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+        ['Контакты']
+      ])
+      .resize()
+    );
+    console.log('Successfully processed name:', customName);
+  } catch (error) {
+    console.error('Error in name scene:', error);
+  }
+  
   await ctx.scene.leave();
 });
 
@@ -85,8 +94,18 @@ bot.use(stage.middleware());
 const pendingReminders = new Map();
 const pendingBookings = new Map();
 
-bot.command('check_data', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
+// Update the handler with logging
+bot.hears(' Нет, ввести другое имя', async (ctx) => {
+  console.log('User chose to enter different name');
+  try {
+    await ctx.scene.enter('name-scene');
+    console.log('Successfully entered name scene');
+  } catch (error) {
+    console.error('Error entering name scene:', error);
+  }
+});
+
+bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
   const data = JSON.stringify(schedules, null, 2);
   const chunkSize = 4000;
   
