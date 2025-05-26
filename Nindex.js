@@ -10,8 +10,9 @@ import fetch from 'node-fetch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const WELCOME_PHOTO = path.join(dirname, 'public', 'assets', 'welcome.jpg');
-const NEXT_PHOTO    = path.join(dirname, 'public', 'assets', 'next.jpg');
+
+const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
+const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
 
 dotenv.config();
 
