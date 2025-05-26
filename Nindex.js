@@ -61,33 +61,27 @@ const bot = new Telegraf(BOT_TOKEN);
 bot.use(session({ 
   defaultSession: () => ({}) 
 }));
-
-bot.hears(' Нет, ввести другое имя', async (ctx) => {
-  console.log('User requested name change');
-  userStates.set(ctx.from.id, 'awaiting_name');
-  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
-});
-
-bot.on('text', async (ctx) => {
-  const userId = ctx.from.id;
-  const userState = userStates.get(userId);
+  bot.hears(' Нет, ввести другое имя', async ctx => {
+    await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
   
-  if (userState === 'awaiting_name') {
-    const customName = ctx.message.text;
-    console.log('Processing custom name:', customName);
+    bot.on('text', async ctx2 => {
+      const customName = ctx2.message.text;
     
-    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-    await ctx.reply(
-      `Приятно познакомиться, ${customName}!`,
-      Markup.keyboard([
-        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-        ['Контакты']
-      ])
-      .resize()
-    );
+      await ctx2.replyWithPhoto({ source: NEXT_PHOTO });
     
-    userStates.delete(userId);
-  }
+      await ctx2.reply(
+        `Приятно познакомиться, ${customName}!`,
+        Markup.keyboard([
+          ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+          ['Контакты']
+        ])
+        .resize()
+      );
+    
+      // Remove the text handler after use
+      bot.off('text');
+    });
+  });
 });bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
   const data = JSON.stringify(schedules, null, 2);
   const chunkSize = 4000;
