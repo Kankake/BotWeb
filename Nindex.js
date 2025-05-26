@@ -59,7 +59,15 @@ try {
 const bot = new Telegraf(BOT_TOKEN);
 bot.command('check_data', async (ctx) => {
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
-  ctx.reply(JSON.stringify(schedules, null, 2));
+  
+  // Split data into smaller chunks
+  const data = JSON.stringify(schedules, null, 2);
+  const chunkSize = 4000; // Leave some buffer
+  
+  for (let i = 0; i < data.length; i += chunkSize) {
+    const chunk = data.slice(i, i + chunkSize);
+    await ctx.reply(chunk);
+  }
 });
 // Set up menu commands
 try {
