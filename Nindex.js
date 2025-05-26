@@ -123,8 +123,33 @@ async function updateScheduleFromExcel(filePath) {
 bot.start(async ctx => {
   const chatId = ctx.chat.id;
   const firstName = ctx.from.first_name || 'клиент';
-// Bot Handlers
-bot.start(ctx => {
+
+  // Clear existing timers if any
+  if (pendingReminders.has(chatId)) {
+    const { t15, t24 } = pendingReminders.get(chatId);
+    clearTimeout(t15);
+    clearTimeout(t24);
+  }
+
+  // 15 minute reminder
+  const t15 = setTimeout(() => {
+    bot.telegram.sendMessage(
+      chatId,
+      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`
+    );
+  }, 15 * 60 * 1000);
+
+  // 24 hour reminder
+  const t24 = setTimeout(() => {
+    bot.telegram.sendMessage(
+      chatId,
+      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`
+    );
+  }, 24 * 60 * 60 * 1000);
+
+  pendingReminders.set(chatId, { t15, t24 });
+
+  // Your existing keyboard reply code
   ctx.reply(
     'Выберите действие:',
     Markup.keyboard([
@@ -351,4 +376,4 @@ process.once('SIGTERM', () => {
   if (bot.isRunning) {
     bot.stop('SIGTERM')
   }
-})})
+})
