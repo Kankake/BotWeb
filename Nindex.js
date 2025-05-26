@@ -121,42 +121,51 @@ async function updateScheduleFromExcel(filePath) {
   return schedules;
 }
 bot.start(async ctx => {
-  const chatId = ctx.chat.id;
-  const firstName = ctx.from.first_name || 'клиент';
-
-  // Clear existing timers if any
-  if (pendingReminders.has(chatId)) {
-    const { t15, t24 } = pendingReminders.get(chatId);
-    clearTimeout(t15);
-    clearTimeout(t24);
-  }
-
-  // 15 minute reminder
-  const t15 = setTimeout(() => {
-    bot.telegram.sendMessage(
-      chatId,
-      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`
-    );
-  }, 15 * 60 * 1000);
-
-  // 24 hour reminder
-  const t24 = setTimeout(() => {
-    bot.telegram.sendMessage(
-      chatId,
-      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`
-    );
-  }, 24 * 60 * 60 * 1000);
-
-  pendingReminders.set(chatId, { t15, t24 });
-
-  // Your existing keyboard reply code
-  ctx.reply(
-    'Выберите действие:',
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ]).resize()
+  const firstName = ctx.from.first_name || '';
+  
+  // Send welcome photo first
+  await ctx.replyWithPhoto({ source: WELCOME_PHOTO });
+  
+  await ctx.reply(
+    `Приветствую, наш будущий клиент!\n` +
+    `Я Лея — умный помощник студии балета и растяжки LEVITA!\n\n` +
+    `Могу обращаться к вам по имени "${firstName}", которое указано у вас в профиле?`,
+    Markup.keyboard([['Да', ' Нет, ввести другое имя']])
+      .resize()
+      .oneTime()
   );
+});
+
+bot.hears('Да', async ctx => {
+  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+  
+  return ctx.reply(
+    'Отлично! Выберите действие:',
+    Markup.keyboard([
+      [' Запись онлайн', ' Запись по звонку администратора'],
+      ['Контакты']
+    ])
+    .resize()
+  );
+});
+
+bot.hears(' Нет, ввести другое имя', async ctx => {
+  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+  
+  bot.once('text', async ctx2 => {
+    const customName = ctx2.message.text;
+    
+    await ctx2.replyWithPhoto({ source: NEXT_PHOTO });
+    
+    await ctx2.reply(
+      `Приятно познакомиться, ${customName}!`,
+      Markup.keyboard([
+        [' Запись онлайн', ' Запись по звонку администратора'],
+        ['Контакты']
+      ])
+      .resize()
+    );
+  });
 });
 
 bot.command('contacts', ctx => {
