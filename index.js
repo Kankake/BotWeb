@@ -129,7 +129,8 @@ bot.start(async ctx => {
   const chatId = ctx.chat.id;
   // Send welcome photo first
   if (pendingReminders.has(chatId)) {
-      const { t15, t24 } = pendingReminders.get(chatId);
+      const {t3, t15, t24 } = pendingReminders.get(chatId);
+      clearTimeout(t3);
       clearTimeout(t15);
       clearTimeout(t24);
     }
@@ -142,15 +143,29 @@ bot.start(async ctx => {
     Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
   ])
     );
-  }, 60 * 1000);
+  },15 * 60 * 1000);
+
+  const t3 = setTimeout(() => {
+    bot.telegram.sendMessage(
+      chatId,
+      `👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!`,
+      Markup.inlineKeyboard([
+    Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
+  ])
+    );
+  }, 3 * 60 * 60 * 1000);
+
   const t24 = setTimeout(() => {
       bot.telegram.sendMessage(
         chatId, 
-        `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`
+        `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
+        Markup.inlineKeyboard([
+    Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
+  ])
       );
     }, 24 * 60 * 60 * 1000);
 
-  pendingReminders.set(chatId, { t15, t24 });
+  pendingReminders.set(chatId, {t3, t15, t24 });
 
   await ctx.replyWithPhoto({ source: WELCOME_PHOTO });
   
@@ -296,7 +311,8 @@ bot.on('contact', async ctx => {
   
   // Clear reminders if exist
   if (pendingReminders.has(chatId)) {
-    const { t15, t24 } = pendingReminders.get(chatId);
+    const {t3, t15, t24 } = pendingReminders.get(chatId);
+    clearTimeout(t3);
     clearTimeout(t15);
     clearTimeout(t24);
     pendingReminders.delete(chatId);
