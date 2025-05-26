@@ -318,5 +318,14 @@ app.listen(PORT, async () => {
 });
 
 // Graceful shutdown
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => {
+  if (bot.isRunning) {
+    bot.stop('SIGINT')
+  }
+});
+
+process.once('SIGTERM', () => {
+  if (bot.isRunning) {
+    bot.stop('SIGTERM')
+  }
+});
