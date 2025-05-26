@@ -106,10 +106,23 @@ bot.command('contacts', ctx => {
   );
 });
 
+// Update the env variable to accept comma-separated IDs
+const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_ID.split(',').map(id => id.trim());
+
+// Update the admin check
+function isAdmin(chatId) {
+  return ADMIN_CHAT_IDS.includes(chatId.toString());
+}
+
+// Update admin commands setup
+for (const adminId of ADMIN_CHAT_IDS) {
+  await bot.telegram.setMyCommands(adminCommands, {
+    scope: { type: 'chat', chat_id: Number(adminId) }
+  });
+}
+
 bot.command('update_schedule', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    return;
-  }
+  if (!isAdmin(ctx.chat.id)) return;
   ctx.reply('Отправьте Excel файл с расписанием');
 });
 
