@@ -14,12 +14,13 @@ dotenv.config();
 
 // Load config from .env
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_ID.split(',').map(id => id.trim());
 const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
-if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
+// Update the validation check
+if (!BOT_TOKEN || !ADMIN_CHAT_IDS.length || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
   process.exit(1);
 }
