@@ -211,6 +211,7 @@
     ul { list-style: none; padding: 0; margin: 0 0 16px; text-align: left; }
     ul li { margin-bottom: 8px; }
     ul b { color: var(--accent-gold); }
+    .zv {color: #000; font-family: 'Calibri'; align-self: center; margin: 8px 8px 8px 8px;}
   </style>
 </head>
 <body>
@@ -258,7 +259,7 @@
       </div>
     </div>
     <div id="step-5" class="card step">
-      <h1>Доступные датя для записи</h1>
+      <h1>Доступные даты для записи</h1>
       <div class="options" id="options-slots"></div>
       <div class="buttons">
         <button class="secondary" id="back5">Назад</button>
@@ -268,18 +269,30 @@
         <button class="more" id="weekBtn">Больше</button>
       </div>
     </div>
+    <div id="step-6" class="card step">
+      <h1>Важно:</h1>
+      <div style="margin-bottom: 16px;">
+      <span class="zv" >Хотим Вас уведомить, что по политике нашей компании Вы можете посетить бесплатное пробное занятие только один раз.
+ Если Вы пропустите Вашу запись, бесплатное занятие посетить больше не получится.
+              Ведь наша компания не про массовость, каждый педагог составляет индивидуальную тренировку для клиентов.
+                Подтверждаю запись?
+                Или хотите перезаписаться?
+              </span>
+              </div>
+      <div class="buttons">
+        <button class="secondary" id="back6" >Изменить</button>
+        <button class="primary" id="submit6" >Подтвердить</button>
+      </div>
+    </div>
     <div id="step-7" class="card step">
-      <h1>хотим Вас уведомить, что по политике нашей компании Вы можете посетить бесплатное пробное занятие только один раз. Если Вы пропустите Вашу запись, бесплатное занятие посетить больше не получится. Ведь наша компания не про массовость, каждый педагог составляет индивидуальную тренировку для клиентов.
-
-Подтверждаю запись?
-Или хотите перезаписаться?
-</h1>
+      <div style="margin-bottom: 16px;">
+        <b style="align-content: center; color: var(--accent-gold); font-size: 1.3ic;">Не забудьте с собой взять форму и хорошее настроение!</b>
+      </div>
       <ul>
         <li><b>Цель:</b> <span id="sum-goal"></span></li>
         <li><b>Направление:</b> <span id="sum-dir"></span></li>
         <li><b>Студия:</b> <span id="sum-address"></span></li>
         <li><b>Слот:</b> <span id="sum-slot"></span></li>
-        <h1>Не забудьте с собой взять форму и хорошее настроение!</h1>
       </ul>
       <div class="buttons">
         <button class="secondary" id="back7">Назад</button>
@@ -303,7 +316,7 @@
   <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
-    const steps = ['step-1','step-2','step-3','step-4','step-5','step-7','step-8'];
+    const steps = ['step-1','step-2','step-3','step-4','step-5','step-6','step-7','step-8'];
     let data = {};
     const show = id => {
       steps.forEach(s => document.getElementById(s).classList.remove('active'));
@@ -341,10 +354,16 @@
       document.getElementById('sum-dir').textContent = data.direction;
       document.getElementById('sum-address').textContent = data.address;
       document.getElementById('sum-slot').textContent = data.slot;
+      show('step-6');
+    });
+    // Step6
+    document.getElementById('back6').addEventListener('click', () => show('step-5'));
+    document.getElementById('submit6').addEventListener('click', () => {
       show('step-7');
     });
+
     // Step7
-    document.getElementById('back7').addEventListener('click', () => show('step-5'));
+    document.getElementById('back7').addEventListener('click', () => show('step-6'));
     
     document.getElementById('submit7').addEventListener('click', async () => {
       const resp = await fetch('/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id: tg.initDataUnsafe.user.id, ...data }) });
