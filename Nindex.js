@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fs from 'fs/promises';
-import { Telegraf, Markup } from 'telegraf';
+import { Telegraf, Markup, Scenes, session } from 'telegraf';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
 
@@ -16,7 +16,6 @@ const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
 
 dotenv.config();
 
-// Load config from .env
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 const WEBAPP_URL = process.env.WEBAPP_URL;
@@ -28,7 +27,6 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   process.exit(1);
 }
 
-// Add after imports
 const initDataDir = async () => {
   const dataDir = path.join(__dirname, 'public', 'data');
   try {
@@ -47,7 +45,6 @@ const initDataDir = async () => {
 
 await initDataDir();
 
-// Load monthly-updatable schedule from JSON file
 let schedules = {};
 try {
   const dataPath = path.join(__dirname, 'public', 'data', 'schedules.json');
@@ -58,24 +55,47 @@ try {
   console.error('❌ Failed to load schedules.json:', err);
 }
 
-// Initialize bot
-const bot = new Telegraf(BOT_TOKEN);
-const pendingReminders = new Map();
+// Create name scene
+const nameScene = new Scenes.BaseScene('name-scene');
 
+nameScene.enter(async (ctx) => {
+  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+});
+
+nameScene.on('text', async (ctx) => {
+  const customName = ctx.message.text;
+  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+  await ctx.reply(
+    `Приятно познакомиться, ${customName}!`,
+    Markup.keyboard([
+      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+      ['Контакты']
+    ])
+    .resize()
+  );
+  await ctx.scene.leave();
+});
+
+// Initialize bot with scenes
+const stage = new Scenes.Stage([nameScene]);
+const bot = new Telegraf(BOT_TOKEN);
+bot.use(session());
+bot.use(stage.middleware());
+
+const pendingReminders = new Map();
+const pendingBookings = new Map();
 
 bot.command('check_data', async (ctx) => {
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
-  
-  // Split data into smaller chunks
   const data = JSON.stringify(schedules, null, 2);
-  const chunkSize = 4000; // Leave some buffer
+  const chunkSize = 4000;
   
   for (let i = 0; i < data.length; i += chunkSize) {
     const chunk = data.slice(i, i + chunkSize);
     await ctx.reply(chunk);
   }
 });
-// Set up menu commands
+
 try {
   const publicCommands = [
     { command: 'start', description: 'Начать заново' },
@@ -95,7 +115,6 @@ try {
   console.error('Не удалось установить команды меню:', err);
 }
 
-// Update schedule function
 async function updateScheduleFromExcel(filePath) {
   const workbook = XLSX.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -123,12 +142,10 @@ async function updateScheduleFromExcel(filePath) {
   
   return schedules;
 }
+
 bot.start(async ctx => {
   const firstName = ctx.from.first_name || '';
-  
-  // Send welcome photo first
   await ctx.replyWithPhoto({ source: WELCOME_PHOTO });
-  
   await ctx.reply(
     `Приветствую, наш будущий клиент!\n` +
     `Я Лея — умный помощник студии балета и растяжки LEVITA!\n\n` +
@@ -141,7 +158,6 @@ bot.start(async ctx => {
 
 bot.hears('Да', async ctx => {
   await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  
   return ctx.reply(
     'Отлично! Выберите действие:',
     Markup.keyboard([
@@ -152,51 +168,30 @@ bot.hears('Да', async ctx => {
   );
 });
 
-bot.hears(' Нет, ввести другое имя', async ctx => {
-  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
-  
-  bot.once('text', async ctx2 => {
-    const customName = ctx2.message.text;
-    
-    await ctx2.replyWithPhoto({ source: NEXT_PHOTO });
-    
-    await ctx2.reply(
-      `Приятно познакомиться, ${customName}!`,
-      Markup.keyboard([
-        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-        ['Контакты']
-      ])
-      .resize()
-    );
-  });
+bot.hears(' Нет, ввести другое имя', async (ctx) => {
+  await ctx.scene.enter('name-scene');
 });
 
 bot.command('contacts', ctx => {
   ctx.reply(
     `Связь с ресепшн студии:
-  Свободы 6 — 8-928-00-00-000
-  Видова 210Д — 8-928-00-00-000
-  Дзержинского 211/2 — 8-928-00-00-000`
+    Свободы 6 — 8-928-00-00-000
+    Видова 210Д — 8-928-00-00-000
+    Дзержинского 211/2 — 8-928-00-00-000`
   );
 });
 
 bot.command('update_schedule', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    return;
-  }
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
   ctx.reply('Отправьте Excel файл с расписанием');
 });
 
 bot.on('document', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    return;
-  }
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
 
   try {
     const file = await ctx.telegram.getFile(ctx.message.document.file_id);
     const filePath = path.join(__dirname, 'temp.xlsx');
-    
-    // Create a download URL and use fetch to download the file
     const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
     const response = await fetch(fileUrl);
     const buffer = await response.buffer();
@@ -232,7 +227,6 @@ bot.hears('📞 Запись по звонку администратора', ct
 bot.on('contact', async ctx => {
   const chatId = ctx.chat.id;
   
-  // Clear reminders if exist
   if (pendingReminders.has(chatId)) {
     const { t15, t24 } = pendingReminders.get(chatId);
     clearTimeout(t15);
@@ -243,11 +237,9 @@ bot.on('contact', async ctx => {
   const { first_name, phone_number } = ctx.message.contact;
   const telegram_id = ctx.from.id;
   
-  // Get stored booking data
   const bookingData = pendingBookings.get(telegram_id);
   
   if (bookingData) {
-    // This is a form submission - send complete booking data
     const msg = `Новая подтвержденная заявка:
       Цель: ${bookingData.goal}
       Направление: ${bookingData.direction}
@@ -260,7 +252,6 @@ bot.on('contact', async ctx => {
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
     pendingBookings.delete(telegram_id);
   } else {
-    // This is a callback request
     const msg = `Новая заявка на обратный звонок:
       Имя: ${first_name}
       Телефон: ${phone_number}
@@ -272,9 +263,6 @@ bot.on('contact', async ctx => {
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
 
-// Add temporary storage for bookings
-const pendingBookings = new Map();
-
 bot.hears('🖥️ Запись онлайн', ctx => {
   ctx.reply(
     'Заполните онлайн-форму:',
@@ -284,12 +272,10 @@ bot.hears('🖥️ Запись онлайн', ctx => {
   );
 });
 
-// Express App
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Endpoints
 app.post('/slots', (req, res) => {
   const { direction, address } = req.body;
   const today = new Date();
@@ -323,7 +309,6 @@ app.get('/json', async (_req, res) => {
 app.post('/submit', async (req, res) => {
   try {
     const bookingData = req.body;
-    // Store booking data
     pendingBookings.set(bookingData.telegram_id, bookingData);
     
     await bot.telegram.sendMessage(
@@ -360,10 +345,8 @@ async function sendBookingToAdmin(bookingData) {
   return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
 }
 
-// Telegram webhook callback
 app.use(bot.webhookCallback(WEBHOOK_PATH));
 
-// Start server and set webhook
 app.listen(PORT, async () => {
   console.log(`🌐 Server listening on port ${PORT}`);
   try {
@@ -377,7 +360,6 @@ app.listen(PORT, async () => {
   }
 });
 
-// Graceful shutdown
 process.once('SIGINT', () => {
   if (bot.isRunning) {
     bot.stop('SIGINT')
@@ -388,4 +370,4 @@ process.once('SIGTERM', () => {
   if (bot.isRunning) {
     bot.stop('SIGTERM')
   }
-})
+});
