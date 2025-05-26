@@ -55,56 +55,42 @@ try {
   console.error('❌ Failed to load schedules.json:', err);
 }
 
-// Create name scene with logging
 const nameScene = new Scenes.BaseScene('name-scene');
+const stage = new Scenes.Stage([nameScene]);
 
-nameScene.enter(async (ctx) => {
-  console.log('Entering name scene');
-  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+const bot = new Telegraf(BOT_TOKEN);
+bot.use(session({ 
+  defaultSession: () => ({}) 
+}));
+bot.use(stage.middleware());
+
+nameScene.enter((ctx) => {
+  console.log('Name scene entered');
+  return ctx.reply('Пожалуйста, введите, как к вам обращаться:');
 });
 
-nameScene.on('text', async (ctx) => {
-  console.log('Received text in name scene:', ctx.message.text);
+nameScene.on('text', (ctx) => {
+  console.log('Processing name:', ctx.message.text);
   const customName = ctx.message.text;
   
-  try {
-    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-    await ctx.reply(
+  return Promise.all([
+    ctx.replyWithPhoto({ source: NEXT_PHOTO }),
+    ctx.reply(
       `Приятно познакомиться, ${customName}!`,
       Markup.keyboard([
         ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
         ['Контакты']
       ])
       .resize()
-    );
-    console.log('Successfully processed name:', customName);
-  } catch (error) {
-    console.error('Error in name scene:', error);
-  }
-  
-  await ctx.scene.leave();
+    ),
+    ctx.scene.leave()
+  ]);
 });
 
-// Initialize bot with scenes
-const stage = new Scenes.Stage([nameScene]);
-const bot = new Telegraf(BOT_TOKEN);
-bot.use(session());
-bot.use(stage.middleware());
-
-const pendingReminders = new Map();
-const pendingBookings = new Map();
-
-// Update the handler with logging
-bot.hears(' Нет, ввести другое имя', async (ctx) => {
-  console.log('User chose to enter different name');
-  try {
-    await ctx.scene.enter('name-scene');
-    console.log('Successfully entered name scene');
-  } catch (error) {
-    console.error('Error entering name scene:', error);
-  }
+bot.hears(' Нет, ввести другое имя', (ctx) => {
+  console.log('Initiating name entry');
+  return ctx.scene.enter('name-scene');
 });
-
 bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
   const data = JSON.stringify(schedules, null, 2);
   const chunkSize = 4000;
