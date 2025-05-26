@@ -151,12 +151,33 @@ bot.hears('📞 Запись по звонку администратора', ct
   );
 });
 
+// Add temporary storage for bookings
+const pendingBookings = new Map();
+
 bot.on('contact', async ctx => {
   const { first_name, phone_number } = ctx.message.contact;
-  await bot.telegram.sendMessage(
-    ADMIN_CHAT_ID,
-    `Новая заявка по звонку:\nИмя: ${first_name}\nТелефон: ${phone_number}`
-  );
+  const telegram_id = ctx.from.id;
+  
+  // Get stored booking data
+  const bookingData = pendingBookings.get(telegram_id);
+  
+  if (bookingData) {
+    // Send complete message to admin
+    const msg = `Новая подтвержденная заявка:
+      Цель: ${bookingData.goal}
+      Направление: ${bookingData.direction}
+      Студия: ${bookingData.address}
+      Слот: ${bookingData.slot || 'не указан'}
+      Имя: ${first_name}
+      Телефон: ${phone_number}
+      ID: ${telegram_id}`;
+      
+    await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
+    
+    // Clear stored data
+    pendingBookings.delete(telegram_id);
+  }
+  
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
 
@@ -208,6 +229,9 @@ app.get('/json', async (_req, res) => {
 app.post('/submit', async (req, res) => {
   try {
     const bookingData = req.body;
+    // Store booking data
+    pendingBookings.set(bookingData.telegram_id, bookingData);
+    
     await bot.telegram.sendMessage(
       bookingData.telegram_id,
       'Спасибо! Для подтверждения, пожалуйста, поделитесь контактом.',
@@ -220,9 +244,7 @@ app.post('/submit', async (req, res) => {
       }
     );
     
-    await sendBookingToAdmin(bookingData);
     res.json({ ok: true });
-    
   } catch (err) {
     console.error('Error in /submit:', err);
     res.status(500).json({ ok: false, error: err.message });
