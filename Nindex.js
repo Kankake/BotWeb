@@ -57,7 +57,10 @@ try {
 
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
-
+bot.command('check_data', async (ctx) => {
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
+  ctx.reply(JSON.stringify(schedules, null, 2));
+});
 // Set up menu commands
 try {
   const publicCommands = [
@@ -67,6 +70,7 @@ try {
   await bot.telegram.setMyCommands(publicCommands);
   const adminCommands = [
     ...publicCommands,
+    { command: 'check_data', description: 'Проверить данные' },
     { command: 'update_schedule', description: 'Обновить расписание (админ)' }
   ];
   await bot.telegram.setMyCommands(adminCommands, {
