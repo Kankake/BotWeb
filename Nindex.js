@@ -14,13 +14,12 @@ dotenv.config();
 
 // Load config from .env
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_ID.split(',').map(id => id.trim());
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
-// Update the validation check
-if (!BOT_TOKEN || !ADMIN_CHAT_IDS.length || !WEBAPP_URL) {
+if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
   process.exit(1);
 }
@@ -39,39 +38,23 @@ try {
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 
-// First, define the commands
-const publicCommands = [
-  { command: 'start', description: 'Начать заново' },
-  { command: 'contacts', description: 'Контакты студии' }
-];
-
-const adminCommands = [
-  ...publicCommands,
-  { command: 'update_schedule', description: 'Обновить расписание (админ)' }
-];
-
-// Then set up the commands for multiple admins
-const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_ID.split(',').map(id => id.trim());
-
 // Set up menu commands
 try {
-  // Set public commands
+  const publicCommands = [
+    { command: 'start', description: 'Начать заново' },
+    { command: 'contacts', description: 'Контакты студии' }
+  ];
   await bot.telegram.setMyCommands(publicCommands);
-  
-  // Set admin commands for each admin
-  for (const adminId of ADMIN_CHAT_IDS) {
-    await bot.telegram.setMyCommands(adminCommands, {
-      scope: { 
-        type: 'chat', 
-        chat_id: adminId // Telegram expects string here
-      }
-    });
-  }
-  
-  await bot.telegram.setChatMenuButton({ type: 'commands' });
-  console.log('✅ Commands menu set successfully');
+  const adminCommands = [
+    ...publicCommands,
+    { command: 'update_schedule', description: 'Обновить расписание (админ)' }
+  ];
+  await bot.telegram.setMyCommands(adminCommands, {
+    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
+  });
+  await bot.telegram.setChatMenuButton('default', { type: 'commands' });
 } catch (err) {
-  console.error('Failed to set menu commands:', err);
+  console.error('Не удалось установить команды меню:', err);
 }
 
 // Update schedule function
@@ -123,23 +106,10 @@ bot.command('contacts', ctx => {
   );
 });
 
-// Update the env variable to accept comma-separated IDs
-const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_ID.split(',').map(id => id.trim());
-
-// Update the admin check
-function isAdmin(chatId) {
-  return ADMIN_CHAT_IDS.includes(chatId.toString());
-}
-
-// Update admin commands setup
-for (const adminId of ADMIN_CHAT_IDS) {
-  await bot.telegram.setMyCommands(adminCommands, {
-    scope: { type: 'chat', chat_id: Number(adminId) }
-  });
-}
-
 bot.command('update_schedule', async (ctx) => {
-  if (!isAdmin(ctx.chat.id)) return;
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return;
+  }
   ctx.reply('Отправьте Excel файл с расписанием');
 });
 
