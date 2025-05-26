@@ -152,26 +152,28 @@ bot.hears('Да', async ctx => {
   );
 });
 
+const awaitingCustomName = new Set();
+
 bot.hears('Нет, ввести другое имя', async ctx => {
+  awaitingCustomName.add(ctx.chat.id);
   await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
 });
 
-// Add new handler for any text message after requesting custom name
 bot.on('text', async ctx => {
-  const customName = ctx.message.text;
+  if (!awaitingCustomName.has(ctx.chat.id)) return;
   
-  if (customName !== 'Нет, ввести другое имя') {
-    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-    
-    await ctx.reply(
-      `Приятно познакомиться, ${customName}!`,
-      Markup.keyboard([
-        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-        ['Контакты']
-      ])
-      .resize()
-    );
-  }
+  const customName = ctx.message.text;
+  awaitingCustomName.delete(ctx.chat.id);
+  
+  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+  await ctx.reply(
+    `Приятно познакомиться, ${customName}!`,
+    Markup.keyboard([
+      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+      ['Контакты']
+    ])
+    .resize()
+  );
 });
 
 
