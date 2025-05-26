@@ -27,14 +27,14 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
 
 // Add after imports
 const initDataDir = async () => {
-  const dataDir = process.env.PERSISTENT_DIR || path.join(__dirname, 'data');
+  const dataDir = process.env.PERSISTENT_DIR || path.join(__dirname, 'public', 'data');
   try {
     await fs.access(dataDir);
   } catch {
     await fs.mkdir(dataDir, { recursive: true });
   }
   
-  const schedulesPath = path.join(dataDir, 'schedules.json');
+  const schedulesPath = path.join(dataDir,'public', 'schedules.json');
   try {
     await fs.access(schedulesPath);
   } catch {
@@ -103,7 +103,7 @@ async function updateScheduleFromExcel(filePath) {
   });
 
   await fs.writeFile(
-    path.join(__dirname, 'data', 'schedules.json'),
+    path.join(__dirname,'public', 'data', 'schedules.json'),
     JSON.stringify(schedules, null, 2)
   );
   
