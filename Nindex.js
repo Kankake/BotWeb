@@ -55,35 +55,43 @@ try {
   console.error('❌ Failed to load schedules.json:', err);
 }
 
-const userStates = new Map();
+const nameScene = new Scenes.BaseScene('name-scene');
+const stage = new Scenes.Stage([nameScene]);
 
 const bot = new Telegraf(BOT_TOKEN);
 bot.use(session({ 
   defaultSession: () => ({}) 
 }));
-  bot.hears(' Нет, ввести другое имя', async ctx => {
-    await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
-  
-    bot.on('text', async ctx2 => {
-      const customName = ctx2.message.text;
-    
-      await ctx2.replyWithPhoto({ source: NEXT_PHOTO });
-    
-      await ctx2.reply(
-        `Приятно познакомиться, ${customName}!`,
-        Markup.keyboard([
-          ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-          ['Контакты']
-        ])
-        .resize()
-      );
-    
-      // Remove the text handler after use
-      bot.off('text');
-    });
-  });
+bot.use(stage.middleware());
 
-  bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
+nameScene.enter((ctx) => {
+  console.log('Name scene entered');
+  return ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+});
+
+nameScene.on('text', (ctx) => {
+  console.log('Processing name:', ctx.message.text);
+  const customName = ctx.message.text;
+  
+  return Promise.all([
+    ctx.replyWithPhoto({ source: NEXT_PHOTO }),
+    ctx.reply(
+      `Приятно познакомиться, ${customName}!`,
+      Markup.keyboard([
+        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+        ['Контакты']
+      ])
+      .resize()
+    ),
+    ctx.scene.leave()
+  ]);
+});
+
+bot.hears(' Нет, ввести другое имя', (ctx) => {
+  console.log('Initiating name entry');
+  return ctx.scene.enter('name-scene');
+});
+bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
   const data = JSON.stringify(schedules, null, 2);
   const chunkSize = 4000;
   
