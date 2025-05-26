@@ -38,23 +38,39 @@ try {
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 
+// First, define the commands
+const publicCommands = [
+  { command: 'start', description: 'Начать заново' },
+  { command: 'contacts', description: 'Контакты студии' }
+];
+
+const adminCommands = [
+  ...publicCommands,
+  { command: 'update_schedule', description: 'Обновить расписание (админ)' }
+];
+
+// Then set up the commands for multiple admins
+const ADMIN_CHAT_IDS = process.env.ADMIN_CHAT_ID.split(',').map(id => id.trim());
+
 // Set up menu commands
 try {
-  const publicCommands = [
-    { command: 'start', description: 'Начать заново' },
-    { command: 'contacts', description: 'Контакты студии' }
-  ];
+  // Set public commands
   await bot.telegram.setMyCommands(publicCommands);
-  const adminCommands = [
-    ...publicCommands,
-    { command: 'update_schedule', description: 'Обновить расписание (админ)' }
-  ];
-  await bot.telegram.setMyCommands(adminCommands, {
-    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
-  });
-  await bot.telegram.setChatMenuButton('default', { type: 'commands' });
+  
+  // Set admin commands for each admin
+  for (const adminId of ADMIN_CHAT_IDS) {
+    await bot.telegram.setMyCommands(adminCommands, {
+      scope: { 
+        type: 'chat', 
+        chat_id: adminId // Telegram expects string here
+      }
+    });
+  }
+  
+  await bot.telegram.setChatMenuButton({ type: 'commands' });
+  console.log('✅ Commands menu set successfully');
 } catch (err) {
-  console.error('Не удалось установить команды меню:', err);
+  console.error('Failed to set menu commands:', err);
 }
 
 // Update schedule function
