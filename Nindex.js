@@ -38,8 +38,8 @@ try {
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 // Фотографии
-const WELCOME_PHOTO = path.join(__dirname, 'assets', 'welcome.jpg');
-const NEXT_PHOTO    = path.join(__dirname, 'assets', 'next.jpg');
+const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
+const NEXT_PHOTO    = path.join(__dirname, 'public', 'assets', 'next.jpg');
 // Set up menu commands
 try {
   const publicCommands = [
