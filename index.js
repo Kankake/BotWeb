@@ -55,64 +55,33 @@ try {
   console.error('❌ Failed to load schedules.json:', err);
 }
 
-<<<<<<< HEAD
-=======
-// Create name scene
->>>>>>> parent of c844438 ('')
+// Create name scene with logging
 const nameScene = new Scenes.BaseScene('name-scene');
-const stage = new Scenes.Stage([nameScene]);
 
-<<<<<<< HEAD
-const bot = new Telegraf(BOT_TOKEN);
-bot.use(session({ 
-  defaultSession: () => ({}) 
-}));
-bot.use(stage.middleware());
-
-nameScene.enter((ctx) => {
-  console.log('Name scene entered');
-  return ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+nameScene.enter(async (ctx) => {
+  console.log('Entering name scene');
+  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
 });
 
-nameScene.on('text', (ctx) => {
-  console.log('Processing name:', ctx.message.text);
+nameScene.on('text', async (ctx) => {
+  console.log('Received text in name scene:', ctx.message.text);
   const customName = ctx.message.text;
   
-  return Promise.all([
-    ctx.replyWithPhoto({ source: NEXT_PHOTO }),
-    ctx.reply(
+  try {
+    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+    await ctx.reply(
       `Приятно познакомиться, ${customName}!`,
       Markup.keyboard([
         ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
         ['Контакты']
       ])
       .resize()
-    ),
-    ctx.scene.leave()
-  ]);
-});
-
-bot.hears(' Нет, ввести другое имя', (ctx) => {
-  console.log('Initiating name entry');
-  return ctx.scene.enter('name-scene');
-});
-bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
-=======
-nameScene.enter(async (ctx) => {
-  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
-});
-
-nameScene.on('text', async (ctx) => {
-  const customName = ctx.message.text;
-  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  await ctx.reply(
-    `Приятно познакомиться, ${customName}!`,
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ])
-    .resize()
-  );
+    );
+    console.log('Successfully processed name:', customName);
+  } catch (error) {
+    console.error('Error in name scene:', error);
+  }
+  
   await ctx.scene.leave();
 });
 
@@ -125,9 +94,18 @@ bot.use(stage.middleware());
 const pendingReminders = new Map();
 const pendingBookings = new Map();
 
-bot.command('check_data', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
->>>>>>> parent of c844438 ('')
+// Update the handler with logging
+bot.hears(' Нет, ввести другое имя', async (ctx) => {
+  console.log('User chose to enter different name');
+  try {
+    await ctx.scene.enter('name-scene');
+    console.log('Successfully entered name scene');
+  } catch (error) {
+    console.error('Error entering name scene:', error);
+  }
+});
+
+bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
   const data = JSON.stringify(schedules, null, 2);
   const chunkSize = 4000;
   
