@@ -123,7 +123,6 @@ async function updateScheduleFromExcel(filePath) {
   
   return schedules;
 }
-
 bot.start(async ctx => {
   const firstName = ctx.from.first_name || '';
   
