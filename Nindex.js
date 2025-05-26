@@ -55,9 +55,14 @@ try {
   console.error('❌ Failed to load schedules.json:', err);
 }
 
+<<<<<<< HEAD
+=======
+// Create name scene
+>>>>>>> parent of c844438 ('')
 const nameScene = new Scenes.BaseScene('name-scene');
 const stage = new Scenes.Stage([nameScene]);
 
+<<<<<<< HEAD
 const bot = new Telegraf(BOT_TOKEN);
 bot.use(session({ 
   defaultSession: () => ({}) 
@@ -92,6 +97,37 @@ bot.hears(' Нет, ввести другое имя', (ctx) => {
   return ctx.scene.enter('name-scene');
 });
 bot.command('check_data', async (ctx) => {  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
+=======
+nameScene.enter(async (ctx) => {
+  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+});
+
+nameScene.on('text', async (ctx) => {
+  const customName = ctx.message.text;
+  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+  await ctx.reply(
+    `Приятно познакомиться, ${customName}!`,
+    Markup.keyboard([
+      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+      ['Контакты']
+    ])
+    .resize()
+  );
+  await ctx.scene.leave();
+});
+
+// Initialize bot with scenes
+const stage = new Scenes.Stage([nameScene]);
+const bot = new Telegraf(BOT_TOKEN);
+bot.use(session());
+bot.use(stage.middleware());
+
+const pendingReminders = new Map();
+const pendingBookings = new Map();
+
+bot.command('check_data', async (ctx) => {
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
+>>>>>>> parent of c844438 ('')
   const data = JSON.stringify(schedules, null, 2);
   const chunkSize = 4000;
   
