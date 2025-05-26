@@ -145,11 +145,31 @@ bot.hears('Контакты', ctx => {
 bot.hears('📞 Запись по звонку администратора', ctx => {
   ctx.reply(
     'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
-    Markup.keyboard([[ Markup.button.contactRequest('📲 Отправить контакт') ]])
-      .resize()
-      .oneTime()
+    Markup.keyboard([
+      [Markup.button.contactRequest('📲 Отправить контакт')]
+    ]).resize()
   );
 });
+
+bot.on('contact', async ctx => {
+  const { first_name, phone_number } = ctx.message.contact;
+  const telegram_id = ctx.from.id;
+  
+  // Send message to admin
+  const msg = `Новая заявка на обратный звонок:
+    Имя: ${first_name}
+    Телефон: ${phone_number}
+    ID: ${telegram_id}`;
+    
+  await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
+  
+  // Send confirmation to user and remove keyboard
+  await ctx.reply(
+    'Спасибо! Мы перезвоним вам в ближайшее время.',
+    Markup.removeKeyboard()
+  );
+});
+
 
 // Add temporary storage for bookings
 const pendingBookings = new Map();
