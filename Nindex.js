@@ -27,14 +27,14 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
 
 // Add after imports
 const initDataDir = async () => {
-  const dataDir = process.env.PERSISTENT_DIR || path.join(__dirname, 'public', 'data');
+  const dataDir = path.join(__dirname, 'public', 'data');
   try {
     await fs.access(dataDir);
   } catch {
     await fs.mkdir(dataDir, { recursive: true });
   }
   
-  const schedulesPath = path.join(dataDir,'public', 'schedules.json');
+  const schedulesPath = path.join(dataDir, 'schedules.json');
   try {
     await fs.access(schedulesPath);
   } catch {
@@ -47,7 +47,7 @@ await initDataDir();
 // Load monthly-updatable schedule from JSON file
 let schedules = {};
 try {
-  const dataPath = path.join(__dirname, 'data', 'schedules.json');
+  const dataPath = path.join(__dirname, 'public', 'data', 'schedules.json');
   const data = await fs.readFile(dataPath, 'utf8');
   schedules = JSON.parse(data);
   console.log('✅ Loaded schedules from data/schedules.json');
