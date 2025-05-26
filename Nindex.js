@@ -6,6 +6,7 @@ import { dirname } from 'path';
 import fs from 'fs/promises';
 import { Telegraf, Markup } from 'telegraf';
 import XLSX from 'xlsx';
+import fetch from 'node-fetch';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -114,7 +115,7 @@ bot.command('update_schedule', async (ctx) => {
 });
 
 bot.on('document', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+  if (!ADMIN_CHAT_IDS.includes(ctx.chat.id.toString())) {
     return;
   }
 
@@ -122,9 +123,13 @@ bot.on('document', async (ctx) => {
     const file = await ctx.telegram.getFile(ctx.message.document.file_id);
     const filePath = path.join(__dirname, 'temp.xlsx');
     
-    await ctx.telegram.downloadFile(file.file_id, filePath);
-    schedules = await updateScheduleFromExcel(filePath);
+    // Create a download URL and use fetch to download the file
+    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const response = await fetch(fileUrl);
+    const buffer = await response.buffer();
+    await fs.writeFile(filePath, buffer);
     
+    schedules = await updateScheduleFromExcel(filePath);
     await fs.unlink(filePath);
     
     ctx.reply('✅ Расписание успешно обновлено!');
