@@ -155,34 +155,11 @@ bot.on('contact', async ctx => {
   const { first_name, phone_number } = ctx.message.contact;
   const telegram_id = ctx.from.id;
   
-  // Send message to admin
-  const msg = `Новая заявка на обратный звонок:
-    Имя: ${first_name}
-    Телефон: ${phone_number}
-    ID: ${telegram_id}`;
-    
-  await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
-  
-  // Send confirmation to user and remove keyboard
-  await ctx.reply(
-    'Спасибо! Мы перезвоним вам в ближайшее время.',
-    Markup.removeKeyboard()
-  );
-});
-
-
-// Add temporary storage for bookings
-const pendingBookings = new Map();
-
-bot.on('contact', async ctx => {
-  const { first_name, phone_number } = ctx.message.contact;
-  const telegram_id = ctx.from.id;
-  
   // Get stored booking data
   const bookingData = pendingBookings.get(telegram_id);
   
   if (bookingData) {
-    // Send complete message to admin
+    // This is a form submission - send complete booking data
     const msg = `Новая подтвержденная заявка:
       Цель: ${bookingData.goal}
       Направление: ${bookingData.direction}
@@ -193,13 +170,22 @@ bot.on('contact', async ctx => {
       ID: ${telegram_id}`;
       
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
-    
-    // Clear stored data
     pendingBookings.delete(telegram_id);
+  } else {
+    // This is a callback request
+    const msg = `Новая заявка на обратный звонок:
+      Имя: ${first_name}
+      Телефон: ${phone_number}
+      ID: ${telegram_id}`;
+      
+    await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
   }
   
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
+
+// Add temporary storage for bookings
+const pendingBookings = new Map();
 
 bot.hears('🖥️ Запись онлайн', ctx => {
   ctx.reply(
