@@ -500,16 +500,17 @@ bot.on('document', async ctx => {
 
   // For webhook setup
   app.listen(PORT, async () => {
-    console.log(`🌐 Server starting on port ${PORT}`);
-    try {
-      await bot.telegram.deleteWebhook();
-      console.log('🔄 Old webhook deleted');
-      await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-      console.log('✅ New webhook set successfully');
-    } catch (e) {
-      console.log('❌ Webhook error:', e);
-    }
-  });
+  console.log(`Сервер слушает порт ${PORT}`);
+  try {
+    await bot.telegram.deleteWebhook();
+    console.log('🔄 Old webhook deleted');
+    await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
+    console.log('✅ New webhook set successfully');
+  } catch (e) {
+    console.error('❌ Webhook error:', e);
+  }
+});
+
 
   // Graceful shutdown
   process.once('SIGINT', () => {
