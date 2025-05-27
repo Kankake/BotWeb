@@ -70,6 +70,9 @@ const awaitingScheduleUpload = new Set();
 const awaitingCustomName = new Set();
 const pendingBookings = new Map();
 
+const session = require('telegraf/session');
+bot.use(session());
+
 // Настройка меню команд
 try {
   // Команды для пользователей
@@ -247,6 +250,7 @@ bot.start(async (ctx) => {
 
 // Обработка ответа "Да" на имя
 bot.hears('Да', async (ctx) => {
+  ctx.session.name = ctx.from.first_name;
   await ctx.replyWithPhoto({ source: NEXT_PHOTO });
   return ctx.reply(
     'Отлично! Выберите действие:',
@@ -308,11 +312,12 @@ bot.on('text', async (ctx) => {
   if (!awaitingCustomName.has(ctx.chat.id)) return;
   awaitingCustomName.delete(ctx.chat.id);
 
-  const firstName = ctx.message.text;
+  const customName = ctx.message.text;
+  ctx.session.name = customName
 
   await ctx.replyWithPhoto({ source: NEXT_PHOTO });
   await ctx.reply(
-    `Приятно познакомиться, ${firstName}! Выберите действие:`,
+    `Приятно познакомиться, ${customName}! Выберите действие:`,
     Markup.keyboard([
       ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
       ['Контакты']
@@ -446,14 +451,14 @@ const app = express();
 
 
   async function sendBookingToAdmin(bookingData) {
-    const { goal, direction, address, firstName, phone, slot, telegram_id } = bookingData;
+    const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
     
     const msg = `Новая онлайн-заявка:
       Цель: ${goal}
       Направление: ${direction}
       Студия: ${address}
       Слот: ${slot || 'не указан'}
-      Имя: ${firstName}
+      Имя: ${name}
       Телефон: ${phone}
       ID: ${telegram_id}`;
       
@@ -461,6 +466,10 @@ const app = express();
   }
 
 app.use(bot.webhookCallback(WEBHOOK_PATH));
+
+app.get('/', (req, res) => {
+  res.send('Server is running...');
+});
 
 app.post(WEBHOOK_PATH, async (req, res) => {
   try {
