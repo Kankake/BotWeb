@@ -449,7 +449,7 @@ const app = express();
   }
 });
 
-
+bookingData.name = customName
   async function sendBookingToAdmin(bookingData) {
     const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
     
