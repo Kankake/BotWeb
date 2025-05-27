@@ -86,20 +86,20 @@
     }
   });
   // Set up menu commands
-try {
-  // Public commands for regular users
+  try {
+  // Команды для обычных пользователей (только команду start)
   const publicCommands = [
     { command: 'start', description: 'Начать заново' },
     { command: 'contacts', description: 'Контакты студии' }
   ];
   await bot.telegram.setMyCommands(publicCommands);
 
-  // Admin group commands - only update_schedule
+  // Команды для администраторов (только команду update_schedule)
   const adminGroupCommands = [
     { command: 'update_schedule', description: 'Обновить расписание' }
   ];
   await bot.telegram.setMyCommands(adminGroupCommands, {
-    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
+    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }  // Ограничение команд только для админа
   });
 
 } catch (err) {
@@ -294,24 +294,26 @@ try {
     );
   });
 
-  bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) => {
+  bot.command('update_schedule', async (ctx) => {
+  // Проверяем, что команду отправил только администратор
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды.');
+  }
+
+  try {
+    // Отправляем промежуточное сообщение, что команда принята
+    await ctx.reply('✅ Команда принята! Пожалуйста, отправьте Excel файл с расписанием.');
+
     console.log('🎯 Command received:', ctx.message.text);
-    
-    try {
-      // Force message sending with notification
-      await ctx.telegram.sendMessage(
-        ctx.chat.id, 
-        'Отправьте Excel файл с расписанием',
-        { disable_notification: false }
-      );
-      console.log('✅ Request message sent successfully');
-    } catch (error) {
-      console.log('📝 Error details:', {
-        chatId: ctx.chat.id,
-        error: error.message
-      });
-    }
-  });
+
+  } catch (error) {
+    console.log('📝 Error details:', {
+      chatId: ctx.chat.id,
+      error: error.message
+    });
+  }
+});
+
 
   bot.on('document', async (ctx) => {
     if (!await isAdminUser(ctx)) {
