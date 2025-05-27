@@ -27,6 +27,8 @@ const awaitingScheduleUpload = new Set();
 const awaitingCustomName = new Set();
 // Добавляем хранилище для пользовательских имен
 const userNames = new Map();
+// Добавляем хранилище для всех пользователей бота
+const botUsers = new Set();
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
@@ -57,6 +59,14 @@ const initDataDir = async () => {
   } catch {
     await fs.writeFile(schedulesPath, '{}');
   }
+  
+  // Инициализация файла для пользователей
+  const usersPath = path.join(dataDir, 'users.json');
+  try {
+    await fs.access(usersPath);
+  } catch {
+    await fs.writeFile(usersPath, '[]');
+  }
 };
 
 await initDataDir();
@@ -72,9 +82,41 @@ try {
   console.error('❌ Failed to load schedules.json:', err);
 }
 
+// Загружаем пользователей из файла
+try {
+  const usersPath = path.join(__dirname, 'public', 'data', 'users.json');
+  const usersData = await fs.readFile(usersPath, 'utf8');
+  const loadedUsers = JSON.parse(usersData);
+  loadedUsers.forEach(user => botUsers.add(user));
+  console.log(`✅ Loaded ${botUsers.size} users from data/users.json`);
+} catch (err) {
+  console.error('❌ Failed to load users.json:', err);
+}
+
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 const pendingReminders = new Map();
+
+// Функция для сохранения пользователей в файл
+async function saveUsersToFile() {
+  try {
+    const usersPath = path.join(__dirname, 'public', 'data', 'users.json');
+    const usersArray = Array.from(botUsers);
+    await fs.writeFile(usersPath, JSON.stringify(usersArray, null, 2));
+    console.log(`💾 Saved ${usersArray.length} users to file`);
+  } catch (err) {
+    console.error('❌ Failed to save users to file:', err);
+  }
+}
+
+// Функция для добавления пользователя
+async function addUser(userId) {
+  if (!botUsers.has(userId)) {
+    botUsers.add(userId);
+    await saveUsersToFile();
+    console.log(`👤 New user added: ${userId}`);
+  }
+}
 
 bot.command('check_data', async (ctx) => {
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
@@ -101,7 +143,9 @@ try {
   // Команды для администраторов (только команду update_schedule)
   const adminGroupCommands = [
     { command: 'update_schedule', description: 'Обновить расписание' },
-    { command: 'cancel_schedule', description: 'Отменить загрузку расписания' }
+    { command: 'cancel_schedule', description: 'Отменить загрузку расписания' },
+    { command: 'users_count', description: 'Количество пользователей' },
+    { command: 'broadcast', description: 'Рассылка сообщения' }
   ];
   await bot.telegram.setMyCommands(adminGroupCommands, {
     scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }  // Ограничение команд только для админа
@@ -159,6 +203,10 @@ async function updateScheduleFromExcel(filePath) {
 bot.start(async ctx => {
   const firstName = ctx.from.first_name || 'клиент';
   const chatId = ctx.chat.id;
+  const userId = ctx.from.id;
+  
+  // Добавляем пользователя в базу
+  await addUser(userId);
   
   // Сохраняем имя из Telegram как дефолтное
   userNames.set(chatId, firstName);
@@ -274,6 +322,9 @@ bot.hears('Нет, ввести другое имя', async ctx => {
 });
 
 bot.on('text', async (ctx) => {
+  // Добавляем пользователя при любом текстовом сообщении
+  await addUser(ctx.from.id);
+  
   // Проверяем команды с упоминанием бота в группе
   const text = ctx.message.text;
   const botUsername = ctx.botInfo.username;
@@ -323,6 +374,46 @@ bot.on('text', async (ctx) => {
       ])
       .resize()
     );
+    return;
+  }
+  
+  // Обработка рассылки
+  if (awaitingBroadcast.has(ctx.chat.id)) {
+    if (!(await isAdminUser(ctx))) {
+      awaitingBroadcast.delete(ctx.chat.id);
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+    
+    const broadcastMessage = text;
+    awaitingBroadcast.delete(ctx.chat.id);
+    
+    await ctx.reply('📤 Начинаю рассылку...');
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const userId of botUsers) {
+      try {
+        await bot.telegram.sendMessage(userId, broadcastMessage);
+        successCount++;
+        // Небольшая задержка, чтобы не превысить лимиты API
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (error) {
+        errorCount++;
+        console.error(`Failed to send message to user ${userId}:`, error.message);
+        
+        // Если пользователь заблокировал бота, удаляем его из списка
+        if (error.message.includes('blocked') || error.message.includes('user not found') || error.message.includes('chat not found')) {
+          botUsers.delete(userId);
+        }
+      }
+    }
+    
+    // Сохраняем обновленный список пользователей
+    await saveUsersToFile();
+    
+    await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${botUsers.size}`);
+    return;
   }
 });
 
@@ -364,6 +455,28 @@ bot.command('cancel_schedule', async (ctx) => {
   } else {
     ctx.reply('ℹ️ Загрузка расписания не была активна');
   }
+});
+
+// Команда для просмотра количества пользователей
+bot.command('users_count', async (ctx) => {
+  if (!(await isAdminUser(ctx))) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+  }
+  
+  ctx.reply(`👥 Всего пользователей бота: ${botUsers.size}`);
+});
+
+// Хранилище для ожидания сообщений рассылки
+const awaitingBroadcast = new Set();
+
+// Команда для рассылки
+bot.command('broadcast', async (ctx) => {
+  if (!(await isAdminUser(ctx))) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+  }
+  
+  awaitingBroadcast.add(ctx.chat.id);
+  ctx.reply('📢 Введите сообщение для рассылки всем пользователям:');
 });
 
 // Исправленный обработчик документов
@@ -446,6 +559,9 @@ bot.on('document', async (ctx) => {
 bot.on('contact', async ctx => {
   const chatId = ctx.chat.id;
   
+  // Добавляем пользователя при отправке контакта
+  await addUser(ctx.from.id);
+  
   // Clear reminders if exist
   if (pendingReminders.has(chatId)) {
     const {t3, t15, t24 } = pendingReminders.get(chatId);
@@ -495,6 +611,17 @@ bot.on('contact', async ctx => {
 
 // Add temporary storage for bookings
 const pendingBookings = new Map();
+
+// Добавляем обработчики для всех остальных действий пользователей
+bot.hears(/.*/, async (ctx) => {
+  // Добавляем пользователя при любом сообщении
+  await addUser(ctx.from.id);
+});
+
+bot.on('callback_query', async (ctx) => {
+  // Добавляем пользователя при нажатии на кнопки
+  await addUser(ctx.from.id);
+});
 
 // Express App
 const app = express();
