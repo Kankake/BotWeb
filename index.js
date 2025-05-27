@@ -24,6 +24,9 @@ const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
 const awaitingScheduleUpload = new Set();
+const awaitingCustomName = new Set();
+// Добавляем хранилище для пользовательских имен
+const userNames = new Map();
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
@@ -156,6 +159,10 @@ async function updateScheduleFromExcel(filePath) {
 bot.start(async ctx => {
   const firstName = ctx.from.first_name || 'клиент';
   const chatId = ctx.chat.id;
+  
+  // Сохраняем имя из Telegram как дефолтное
+  userNames.set(chatId, firstName);
+  
   // Send welcome photo first
   if (pendingReminders.has(chatId)) {
       const {t3, t15, t24 } = pendingReminders.get(chatId);
@@ -221,8 +228,6 @@ bot.hears('Да', async ctx => {
     .resize()
   );
 });
-
-const awaitingCustomName = new Set();
 
 bot.hears('🖥️ Запись онлайн', ctx => {
   ctx.reply(
@@ -302,21 +307,23 @@ bot.on('text', async (ctx) => {
     return;
   }
   
-  // Существующая логика для пользовательских имен
-  if (!awaitingCustomName.has(ctx.chat.id)) return;
-  
-  const customName = ctx.message.text;
-  awaitingCustomName.delete(ctx.chat.id);
-  
-  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  await ctx.reply(
-    `Приятно познакомиться, ${customName}! Выберите действие:`,
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ])
-    .resize()
-  );
+  // Обработка пользовательского имени
+  if (awaitingCustomName.has(ctx.chat.id)) {
+    const customName = ctx.message.text;
+    // Сохраняем пользовательское имя
+    userNames.set(ctx.chat.id, customName);
+    awaitingCustomName.delete(ctx.chat.id);
+    
+    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+    await ctx.reply(
+      `Приятно познакомиться, ${customName}! Выберите действие:`,
+      Markup.keyboard([
+        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+        ['Контакты']
+      ])
+      .resize()
+    );
+  }
 });
 
 bot.command('contacts', ctx => {
@@ -357,58 +364,6 @@ bot.command('cancel_schedule', async (ctx) => {
   } else {
     ctx.reply('ℹ️ Загрузка расписания не была активна');
   }
-});
-
-// Добавляем обработчик для команд с упоминанием бота
-bot.on('text', async (ctx) => {
-  // Проверяем команды с упоминанием бота в группе
-  const text = ctx.message.text;
-  const botUsername = ctx.botInfo.username;
-  
-  if (text.startsWith(`/update_schedule@${botUsername}`)) {
-    console.log('📝 Команда update_schedule с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      console.log('❌ Пользователь не админ');
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    console.log('✅ Админ подтвержден, добавляем в ожидание');
-    awaitingScheduleUpload.add(ctx.chat.id);
-    return ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
-  }
-  
-  if (text.startsWith(`/cancel_schedule@${botUsername}`)) {
-    console.log('📝 Команда cancel_schedule с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    if (awaitingScheduleUpload.has(ctx.chat.id)) {
-      awaitingScheduleUpload.delete(ctx.chat.id);
-      ctx.reply('❌ Загрузка расписания отменена');
-    } else {
-      ctx.reply('ℹ️ Загрузка расписания не была активна');
-    }
-    return;
-  }
-  
-  // Существующая логика для пользовательских имен
-  if (!awaitingCustomName.has(ctx.chat.id)) return;
-  
-  const customName = ctx.message.text;
-  awaitingCustomName.delete(ctx.chat.id);
-  
-  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  await ctx.reply(
-    `Приятно познакомиться, ${customName}! Выберите действие:`,
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ])
-    .resize()
-  );
 });
 
 // Исправленный обработчик документов
@@ -503,6 +458,12 @@ bot.on('contact', async ctx => {
   const { first_name, phone_number } = ctx.message.contact;
   const telegram_id = ctx.from.id;
   
+  // Получаем сохраненное имя пользователя или используем имя из контакта
+  const userName = userNames.get(chatId) || first_name;
+  
+  // Добавляем + к номеру телефона, если его нет
+  const formattedPhone = phone_number.startsWith('+') ? phone_number : `+${phone_number}`;
+  
   // Get stored booking data
   const bookingData = pendingBookings.get(telegram_id);
   
@@ -513,8 +474,8 @@ bot.on('contact', async ctx => {
       Направление: ${bookingData.direction}
       Студия: ${bookingData.address}
       Слот: ${bookingData.slot || 'не указан'}
-      Имя: ${first_name}
-      Телефон: ${phone_number}
+      Имя: ${userName}
+      Телефон: ${formattedPhone}
       ID: ${telegram_id}`;
       
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
@@ -522,8 +483,8 @@ bot.on('contact', async ctx => {
   } else {
     // This is a callback request
     const msg = `Новая заявка на обратный звонок:
-      Имя: ${first_name}
-      Телефон: ${phone_number}
+      Имя: ${userName}
+      Телефон: ${formattedPhone}
       ID: ${telegram_id}`;
       
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
@@ -559,6 +520,18 @@ app.post('/slots', (req, res) => {
     })
     .map(slot => ({ date: slot.date, time: slot.time }));
   res.json({ ok: true, slots });
+});
+
+// Добавляем новый endpoint для получения имени пользователя
+app.get('/user-name/:telegram_id', (req, res) => {
+  const telegramId = parseInt(req.params.telegram_id);
+  const userName = Array.from(userNames.entries())
+    .find(([chatId, name]) => chatId === telegramId)?.[1];
+  
+  res.json({ 
+    ok: true, 
+    name: userName || null 
+  });
 });
 
 app.get('/json', async (_req, res) => {
