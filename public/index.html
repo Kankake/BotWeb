@@ -228,6 +228,30 @@
     ul li { margin-bottom: 8px; }
     ul b { color: var(--accent-gold); }
     .zv {color: #000; font-family: 'Calibri'; align-self: center; margin: 8px 8px 8px 8px;}
+    #options-goal {
+  max-height: 60vh; /* 60% of viewport height */
+  overflow-y: auto; /* Enable vertical scrolling */
+  padding-right: 8px; /* Add some padding for the scrollbar */
+}
+
+/* Optional: Style the scrollbar for webkit browsers */
+#options-goal::-webkit-scrollbar {
+  width: 8px;
+}
+
+#options-goal::-webkit-scrollbar-track {
+  background: var(--bg-light);
+  border-radius: 4px;
+}
+
+#options-goal::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 4px;
+}
+
+#options-goal::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-gold);
+}
   </style>
 </head>
 <body>
