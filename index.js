@@ -437,8 +437,8 @@ const app = express();
 
   // Сохраняем номер телефона из контакта
   bookingData.phone = contact.phone_number;
-  bookingData.name = customName
-  
+  bookingData.name = ctx.session.name 
+
   try {
     await sendBookingToAdmin(bookingData);
     await ctx.reply('✅ Спасибо! Ваша заявка принята, с вами скоро свяжется администратор.');
@@ -491,4 +491,3 @@ app.listen(PORT, async () => {
     console.error('Ошибка установки webhook:', err);
   }
 });
-
