@@ -562,7 +562,8 @@ bot.command('cancel_schedule', async (ctx) => {
 // Команда для просмотра количества пользователей
 bot.command('users_count', async (ctx) => {
   try {
-    const count = await getUsersCount();
+    const res = await pool.query('SELECT COUNT(*) FROM bot_users');
+    const count = parseInt(res.rows[0].count, 10);
     await ctx.reply(`👥 Всего пользователей бота: ${count}`);
   } catch (err) {
     console.error('Failed to get users count:', err);
