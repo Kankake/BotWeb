@@ -295,14 +295,19 @@
     );
   });
 
-bot.command('update_schedule', (ctx) => {
+bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], ctx => {
+  console.log('Получена команда /update_schedule из чата:', ctx.chat?.id);
   if (!isAdminUser(ctx)) return;
   awaitingScheduleUpload.add(ctx.chat.id);
   ctx.reply('Отправьте файл Excel с расписанием');
 });
 
-// Обработка загруженного файла Excel с расписанием (только для админа)
-bot.on('document', async (ctx) => {
+bot.on('message', ctx => {
+  console.log('Получено сообщение:', ctx.message?.text || '[не текст]');
+});
+
+
+bot.on('document', async ctx => {
   try {
     if (!awaitingScheduleUpload.has(ctx.chat.id)) {
       return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
@@ -314,26 +319,24 @@ bot.on('document', async (ctx) => {
     const response = await fetch(fileLink.href);
     const buffer = await response.buffer();
 
-    // Обрабатываем Excel
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    // Конвертируем в нужный формат (если нужно — подстроить под свой формат)
+    // Преобразование данных в нужный формат, пример
     const schedule = {};
     data.forEach(row => {
-      const day = row.Day || row.date || row.Date; // подстроить под реальный столбец
-      const time = row.Time || row.time || '';
-      const name = row.Name || row.name || '';
+      const day = row.Day;
+      const time = row.Time;
+      const name = row.Name;
       if (!schedule[day]) schedule[day] = [];
       schedule[day].push({ time, name });
     });
 
-    // Записываем в файл
+    // Записываем расписание в файл
     const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
     await fs.writeFile(filePath, JSON.stringify(schedule, null, 2));
-    schedules = schedule;
 
     ctx.reply('Расписание успешно обновлено');
   } catch (error) {
