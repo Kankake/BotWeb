@@ -491,7 +491,7 @@
   });
 
   // For command handling
-  bot.command('update_schedule', async (ctx) => {
+  bot.command(['update_schedule','update_schedule@Levita_nvrs_bot'], async (ctx) => {
     console.log('📝 Update schedule command received');
     console.log('From chat ID:', ctx.chat.id);
     if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
