@@ -15,7 +15,7 @@ console.log('NODE_ENV:', process.env.NODE_ENV);
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 pool.connect()
@@ -442,7 +442,8 @@ bot.on('text', async (ctx) => {
   // Добавляем обработку команды users_count с упоминанием
   if (text.startsWith(`/users_count@${botUsername}`)) {
     console.log('📝 Команда users_count с упоминанием получена от:', ctx.chat.id);
-    
+    console.log('Using DB URL:', process.env.DATABASE_URL);
+
     if (!(await isAdminUser(ctx))) {
       return ctx.reply('❌ У вас нет прав для выполнения этой команды');
     }
@@ -560,13 +561,15 @@ bot.command('cancel_schedule', async (ctx) => {
 
 // Команда для просмотра количества пользователей
 bot.command('users_count', async (ctx) => {
-  if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+  try {
+    const count = await getUsersCount();
+    await ctx.reply(`👥 Всего пользователей бота: ${count}`);
+  } catch (err) {
+    console.error('Failed to get users count:', err);
+    await ctx.reply('Ошибка при получении количества пользователей.');
   }
-  
-  const count = await getUsersCount();
-  ctx.reply(`👥 Всего пользователей бота: ${count}`);
 });
+
 
 // Команда для рассылки
 bot.command('broadcast', async (ctx) => {
