@@ -7,16 +7,21 @@ import fs from 'fs/promises';
 import { Telegraf, Markup } from 'telegraf';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
-// Добавить после всех импортов, до инициализации констант
-
 import pkg from 'pg';
 const { Pool } = pkg;
 
-// Инициализация базы данных
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
+
+pool.connect()
+  .then(() => console.log('DB connected!'))
+  .catch(err => console.error('DB connection error:', err));
+
 
 // Создание таблиц при запуске
 async function initDatabase() {
@@ -188,7 +193,6 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
 
 // Функция проверки на админа
 async function isAdminUser(ctx) {
-  // Проверяем, отправлено ли сообщение из админской группы
   if (ctx.chat.id.toString() === ADMIN_CHAT_ID) {
     return true;
   }
