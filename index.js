@@ -195,70 +195,9 @@ async function isAdminUser(ctx) {
   return false;
 }
 
-// Add after imports
-const initDataDir = async () => {
-  const dataDir = path.join(__dirname, 'public', 'data');
-  try {
-    await fs.access(dataDir);
-  } catch {
-    await fs.mkdir(dataDir, { recursive: true });
-  }
-  
-  const schedulesPath = path.join(dataDir, 'schedules.json');
-  try {
-    await fs.access(schedulesPath);
-  } catch {
-    await fs.writeFile(schedulesPath, '{}');
-  }
-  
-  // Инициализация файла для пользователей
-  const usersPath = path.join(dataDir, 'users.json');
-  try {
-    await fs.access(usersPath);
-  } catch {
-    await fs.writeFile(usersPath, '[]');
-  }
-};
-
-await initDataDir();
-
-// Load monthly-updatable schedule from JSON file
-let schedules = await loadSchedules();
-
-// Загружаем пользователей из файла
-try {
-  const usersPath = path.join(__dirname, 'public', 'data', 'users.json');
-  const usersData = await fs.readFile(usersPath, 'utf8');
-  const loadedUsers = JSON.parse(usersData);
-  loadedUsers.forEach(user => botUsers.add(user));
-  console.log(`✅ Loaded ${botUsers.size} users from data/users.json`);
-} catch (err) {
-  console.error('❌ Failed to load users.json:', err);
-}
-
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 
-// Функция для сохранения пользователей в файл
-async function saveUsersToFile() {
-  try {
-    const usersPath = path.join(__dirname, 'public', 'data', 'users.json');
-    const usersArray = Array.from(botUsers);
-    await fs.writeFile(usersPath, JSON.stringify(usersArray, null, 2));
-    console.log(`💾 Saved ${usersArray.length} users to file`);
-  } catch (err) {
-    console.error('❌ Failed to save users to file:', err);
-  }
-}
-
-// Функция для добавления пользователя
-async function addUser(userId) {
-  if (!botUsers.has(userId)) {
-    botUsers.add(userId);
-    await saveUsersToFile();
-    console.log(`👤 New user added: ${userId}`);
-  }
-}
 
 bot.command('check_data', async (ctx) => {
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
