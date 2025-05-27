@@ -360,39 +360,54 @@ bot.on('text', async (ctx) => {
   
   if (text.startsWith(`/broadcast@${botUsername}`)) {
     console.log('📝 Команда broadcast с упоминанием получена от:', ctx.chat.id);
-    
+
     if (!(await isAdminUser(ctx))) {
       return ctx.reply('❌ У вас нет прав для выполнения этой команды');
     }
-    
+
+    // Выделяем префикс команды
+    const commandPrefix = `/broadcast@${botUsername}`;
+    // Обрезаем команду, оставляем только сам текст рассылки
+    const broadcastMessage = text.startsWith(commandPrefix)
+      ? text.slice(commandPrefix.length).trim()
+      : text;
+
+    // Если после обрезки нет текста — попросим ввести сообщение
+    if (!broadcastMessage) {
+      return ctx.reply('❌ Пожалуйста, укажите текст сообщения после команды.');
+    }
+
     if (awaitingBroadcast.has(ctx.chat.id)) {
+      // Если уже ожидали — отменяем ожидание
       awaitingBroadcast.delete(ctx.chat.id);
     } else {
-      await ctx.reply('✍️ Пожалуйста, отправьте текст сообщения для рассылки');
+      // Начинаем рассылку
+      awaitingBroadcast.add(ctx.chat.id);
+      
+      await ctx.reply('📤 Начинаю рассылку...');
 
-      const broadcastMessage = ctx.message.text;
-    
-    await ctx.reply('📤 Начинаю рассылку...');
-    
-    let successCount = 0;
-    let errorCount = 0;
-    
-    for (const userId of botUsers) {
-      try {
-        await bot.telegram.sendMessage(userId, broadcastMessage);
-        successCount++;
-        // Небольшая задержка, чтобы не превысить лимиты API
-        await new Promise(resolve => setTimeout(resolve, 50));
-      } catch (error) {
-        errorCount++;
-        console.error(`Failed to send message to user ${userId}:`, error.message);
-        
-        // Если пользователь заблокировал бота, удаляем его из списка
-        if (error.message.includes('blocked') || error.message.includes('user not found') || error.message.includes('chat not found')) {
-          botUsers.delete(userId);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userId of botUsers) {
+        try {
+          await bot.telegram.sendMessage(userId, broadcastMessage);
+          successCount++;
+          // Не спамим API
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (error) {
+          errorCount++;
+          console.error(`Failed to send message to user ${userId}:`, error.message);
+
+          if (error.message.includes('blocked') ||
+              error.message.includes('user not found') ||
+              error.message.includes('chat not found')) {
+            botUsers.delete(userId);
+          }
         }
       }
-    }
+
+      await ctx.reply(`✅ Рассылка завершена\nУспешно: ${successCount}\nОшибок: ${errorCount}`);
     return;
   }}
 
