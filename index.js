@@ -23,6 +23,7 @@
   const PORT = process.env.PORT || 3000;
   const WEBHOOK_PATH = '/tg-webhook';
 
+  const awaitingScheduleUpload = new Set();
 
   if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
     console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
@@ -295,16 +296,13 @@
   });
 
   bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) => {
+    if (!await isAdminUser(ctx)) return;
+
     console.log('🎯 Command received:', ctx.message.text);
-    
+    awaitingScheduleUpload.add(ctx.chat.id); // ждём файл
+
     try {
-      // Force message sending with notification
-      await ctx.reply(
-        ctx.chat.id, 
-        'Отправьте Excel файл с расписанием',
-        { disable_notification: false }
-      );
-      console.log('✅ Request message sent successfully');
+      await ctx.reply('Отправьте Excel файл с расписанием', { disable_notification: false });
     } catch (error) {
       console.log('📝 Error details:', {
         chatId: ctx.chat.id,
@@ -313,28 +311,37 @@
     }
   });
 
-  bot.on('document', async (ctx) => {
-    if (!await isAdminUser(ctx)) {
-      return;
-    }
 
-    try {
-      const file = await ctx.telegram.getFile(ctx.message.document.file_id);
-      const filePath = path.join(__dirname, 'temp.xlsx');
-      
-      const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
-      const response = await fetch(fileUrl);
-      const buffer = await response.buffer();
-      await fs.writeFile(filePath, buffer);
-      
-      schedules = await updateScheduleFromExcel(filePath);
-      await fs.unlink(filePath);
-      
-      ctx.reply('✅ Расписание успешно обновлено!');
-    } catch (error) {
-      ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
-    }
-  });
+  bot.on('document', async (ctx) => {
+  const chatId = ctx.chat.id;
+
+  if (!await isAdminUser(ctx)) return;
+
+  if (!awaitingScheduleUpload.has(chatId)) {
+    return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
+  }
+
+  // Очистим флаг ожидания
+  awaitingScheduleUpload.delete(chatId);
+
+  try {
+    const file = await ctx.telegram.getFile(ctx.message.document.file_id);
+    const filePath = path.join(__dirname, 'temp.xlsx');
+    
+    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const response = await fetch(fileUrl);
+    const buffer = await response.buffer();
+    await fs.writeFile(filePath, buffer);
+    
+    schedules = await updateScheduleFromExcel(filePath);
+    await fs.unlink(filePath);
+    
+    ctx.reply('✅ Расписание успешно обновлено!');
+  } catch (error) {
+    ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
+  }
+});
+
 
   bot.hears('Контакты', ctx => {
     ctx.reply(
