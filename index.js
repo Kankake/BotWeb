@@ -437,7 +437,8 @@ const app = express();
 
   // Сохраняем номер телефона из контакта
   bookingData.phone = contact.phone_number;
-
+  bookingData.name = customName
+  
   try {
     await sendBookingToAdmin(bookingData);
     await ctx.reply('✅ Спасибо! Ваша заявка принята, с вами скоро свяжется администратор.');
@@ -448,7 +449,6 @@ const app = express();
   }
 });
 
-bookingData.name = customName
   async function sendBookingToAdmin(bookingData) {
     const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
     
@@ -491,3 +491,4 @@ app.listen(PORT, async () => {
     console.error('Ошибка установки webhook:', err);
   }
 });
+
