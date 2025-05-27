@@ -18,9 +18,15 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
+let schedules = {}; // глобальная переменная
+
 pool.connect()
-  .then(() => console.log('DB connected!'))
-  .catch(err => console.error('DB connection error:', err));
+  .then(async () => {
+    console.log('✅ DB connected!');
+    schedules = await loadSchedules(); // ← загружаем расписания
+  })
+  .catch(err => console.error('❌ DB connection error:', err));
+
 
 
 // Создание таблиц при запуске
