@@ -422,6 +422,29 @@ const app = express();
     }
   });
 
+  bot.on('contact', async (ctx) => {
+  const contact = ctx.message.contact;
+  const telegramId = ctx.from.id;
+
+  const bookingData = pendingBookings.get(telegramId);
+  if (!bookingData) {
+    return ctx.reply('Не удалось найти вашу заявку. Пожалуйста, заполните форму снова.');
+  }
+
+  // Сохраняем номер телефона из контакта
+  bookingData.phone = contact.phone_number;
+
+  try {
+    await sendBookingToAdmin(bookingData);
+    await ctx.reply('✅ Спасибо! Ваша заявка принята, с вами скоро свяжется администратор.');
+    pendingBookings.delete(telegramId);
+  } catch (err) {
+    console.error('Ошибка при отправке администратору:', err);
+    await ctx.reply('Произошла ошибка при отправке данных. Пожалуйста, попробуйте позже.');
+  }
+});
+
+
   async function sendBookingToAdmin(bookingData) {
     const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
     
