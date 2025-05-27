@@ -358,6 +358,29 @@ bot.on('text', async (ctx) => {
     return;
   }
   
+  // Добавляем обработку команды users_count с упоминанием
+  if (text.startsWith(`/users_count@${botUsername}`)) {
+    console.log('📝 Команда users_count с упоминанием получена от:', ctx.chat.id);
+    
+    if (!(await isAdminUser(ctx))) {
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+    
+    return ctx.reply(`👥 Всего пользователей бота: ${botUsers.size}`);
+  }
+  
+  // Добавляем обработку команды broadcast с упоминанием
+  if (text.startsWith(`/broadcast@${botUsername}`)) {
+    console.log('📝 Команда broadcast с упоминанием получена от:', ctx.chat.id);
+    
+    if (!(await isAdminUser(ctx))) {
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+    
+    awaitingBroadcast.add(ctx.chat.id);
+    return ctx.reply('📢 Введите сообщение для рассылки всем пользователям:');
+  }
+  
   // Обработка пользовательского имени
   if (awaitingCustomName.has(ctx.chat.id)) {
     const customName = ctx.message.text;
@@ -378,7 +401,7 @@ bot.on('text', async (ctx) => {
   }
   
   // Обработка рассылки
-   if (awaitingBroadcast.has(ctx.chat.id)) {
+  if (awaitingBroadcast.has(ctx.chat.id)) {
      if (!(await isAdminUser(ctx))) {
        awaitingBroadcast.delete(ctx.chat.id);
        return ctx.reply('❌ У вас нет прав для выполнения этой команды');
