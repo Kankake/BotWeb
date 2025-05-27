@@ -29,6 +29,15 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   process.exit(1);
 }
 
+// Функция проверки на админа
+async function isAdminUser(ctx) {
+  // Проверяем, отправлено ли сообщение из админской группы
+  if (ctx.chat.id.toString() === ADMIN_CHAT_ID) {
+    return true;
+  }
+  return false;
+}
+
 // Add after imports
 const initDataDir = async () => {
   const dataDir = path.join(__dirname, 'public', 'data');
@@ -284,16 +293,9 @@ bot.command('contacts', ctx => {
 });
 
 bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) => {
-  console.log('📝 Update command triggered');
-  console.log('From chat:', {
-    id: ctx.chat.id,
-    type: ctx.chat.type,
-    title: ctx.chat.title,
-    username: ctx.from.username
-  });
+  console.log('📝 Update command triggered in:', ctx.chat.title);
   
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    console.log('❌ Access denied for chat ID:', ctx.chat.id);
+  if (!await isAdminUser(ctx)) {
     return;
   }
   
@@ -302,7 +304,7 @@ bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) 
 });
 
 bot.on('document', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+  if (!await isAdminUser(ctx)) {
     return;
   }
 
@@ -310,7 +312,6 @@ bot.on('document', async (ctx) => {
     const file = await ctx.telegram.getFile(ctx.message.document.file_id);
     const filePath = path.join(__dirname, 'temp.xlsx');
     
-    // Create a download URL and use fetch to download the file
     const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
     const response = await fetch(fileUrl);
     const buffer = await response.buffer();
