@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+  import dotenv from 'dotenv';
   import express from 'express';
   import path from 'path';
   import { fileURLToPath } from 'url';
@@ -167,7 +167,7 @@ import dotenv from 'dotenv';
       const t15 = setTimeout(() => {
       bot.telegram.sendMessage(
         chatId,
-        ${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈,
+        `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
     Markup.inlineKeyboard([
       Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
     ])
@@ -177,7 +177,7 @@ import dotenv from 'dotenv';
     const t3 = setTimeout(() => {
       bot.telegram.sendMessage(
         chatId,
-        👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!,
+        `👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!`,
         Markup.inlineKeyboard([
       Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
     ])
@@ -187,7 +187,7 @@ import dotenv from 'dotenv';
     const t24 = setTimeout(() => {
         bot.telegram.sendMessage(
           chatId, 
-          ${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈,
+          `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
           Markup.inlineKeyboard([
       Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
     ])
@@ -200,9 +200,9 @@ import dotenv from 'dotenv';
     
     
     await ctx.reply(
-      Приветствую, наш будущий клиент!\n +
-      Я Лея — умный помощник студии балета и растяжки LEVITA!\n\n +
-      Могу обращаться к вам по имени "${firstName}", которое указано у вас в профиле?,
+      `Приветствую, наш будущий клиент!\n` +
+      `Я Лея — умный помощник студии балета и растяжки LEVITA!\n\n` +
+      `Могу обращаться к вам по имени "${firstName}", которое указано у вас в профиле?`,
       Markup.keyboard([['Да', 'Нет, ввести другое имя']])
         .resize()
         .oneTime()
@@ -256,10 +256,10 @@ import dotenv from 'dotenv';
 
   bot.hears('Контакты', ctx => {
     ctx.reply(
-      Связь с ресепшн студии:
+      `Связь с ресепшн студии:
       Свободы 6 — 8-928-00-00-000
       Видова 210Д — 8-928-00-00-000
-      Дзержинского 211/2 — 8-928-00-00-000
+      Дзержинского 211/2 — 8-928-00-00-000`
     );
   });
 
@@ -276,7 +276,7 @@ import dotenv from 'dotenv';
     
     await ctx.replyWithPhoto({ source: NEXT_PHOTO });
     await ctx.reply(
-      Приятно познакомиться, ${customName}! Выберите действие:,
+      `Приятно познакомиться, ${customName}! Выберите действие:`,
       Markup.keyboard([
         ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
         ['Контакты']
@@ -288,67 +288,65 @@ import dotenv from 'dotenv';
 
   bot.command('contacts', ctx => {
     ctx.reply(
-      Связь с ресепшн студии:
+      `Связь с ресепшн студии:
     Свободы 6 — 8-928-00-00-000
     Видова 210Д — 8-928-00-00-000
-    Дзержинского 211/2 — 8-928-00-00-000
+    Дзержинского 211/2 — 8-928-00-00-000`
     );
   });
 
-  bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) => {
-    if (!await isAdminUser(ctx)) return;
-
-    console.log('🎯 Command received:', ctx.message.text);
-    awaitingScheduleUpload.add(ctx.chat.id); // ждём файл
-
-    try {
-      await ctx.reply('Отправьте Excel файл с расписанием', { disable_notification: false });
-    } catch (error) {
-      console.log('📝 Error details:', {
-        chatId: ctx.chat.id,
-        error: error.message
-      });
-    }
-  });
+bot.command('update_schedule', ctx => {
+  if (!isAdminUser(ctx)) return;
+  awaitingScheduleUpload.add(ctx.chat.id);
+  ctx.reply('Отправьте файл Excel с расписанием');
+});
 
 
-  bot.on('document', async (ctx) => {
-  const chatId = ctx.chat.id;
-
-  if (!await isAdminUser(ctx)) return;
-
-  if (!awaitingScheduleUpload.has(chatId)) {
-    return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
-  }
-
-  // Очистим флаг ожидания
-  awaitingScheduleUpload.delete(chatId);
-
+bot.on('document', async ctx => {
   try {
-    const file = await ctx.telegram.getFile(ctx.message.document.file_id);
-    const filePath = path.join(__dirname, 'temp.xlsx');
-    
-    const fileUrl = https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path};
-    const response = await fetch(fileUrl);
+    if (!awaitingScheduleUpload.has(ctx.chat.id)) {
+      return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
+    }
+    awaitingScheduleUpload.delete(ctx.chat.id);
+
+    const fileId = ctx.message.document.file_id;
+    const fileLink = await ctx.telegram.getFileLink(fileId);
+    const response = await fetch(fileLink.href);
     const buffer = await response.buffer();
-    await fs.writeFile(filePath, buffer);
-    
-    schedules = await updateScheduleFromExcel(filePath);
-    await fs.unlink(filePath);
-    
-    ctx.reply('✅ Расписание успешно обновлено!');
+
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(sheet);
+
+    // Преобразование данных в нужный формат, пример
+    const schedule = {};
+    data.forEach(row => {
+      const day = row.Day;
+      const time = row.Time;
+      const name = row.Name;
+      if (!schedule[day]) schedule[day] = [];
+      schedule[day].push({ time, name });
+    });
+
+    // Записываем расписание в файл
+    const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
+    await fs.writeFile(filePath, JSON.stringify(schedule, null, 2));
+
+    ctx.reply('Расписание успешно обновлено');
   } catch (error) {
-    ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
+    console.error(error);
+    ctx.reply('Ошибка при обработке файла расписания');
   }
 });
 
 
   bot.hears('Контакты', ctx => {
     ctx.reply(
-      Связь с ресепшн студии:
+      `Связь с ресепшн студии:
       Свободы 6 — 8-928-00-00-000
       Видова 210Д — 8-928-00-00-000
-      Дзержинского 211/2 — 8-928-00-00-000
+      Дзержинского 211/2 — 8-928-00-00-000`
     );
   });
 
@@ -372,23 +370,23 @@ import dotenv from 'dotenv';
     
     if (bookingData) {
       // This is a form submission - send complete booking data
-      const msg = Новая подтвержденная заявка:
+      const msg = `Новая подтвержденная заявка:
         Цель: ${bookingData.goal}
         Направление: ${bookingData.direction}
         Студия: ${bookingData.address}
         Слот: ${bookingData.slot || 'не указан'}
         Имя: ${first_name}
         Телефон: ${phone_number}
-        ID: ${telegram_id};
+        ID: ${telegram_id}`;
         
       await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
       pendingBookings.delete(telegram_id);
     } else {
       // This is a callback request
-      const msg = Новая заявка на обратный звонок:
+      const msg = `Новая заявка на обратный звонок:
         Имя: ${first_name}
         Телефон: ${phone_number}
-        ID: ${telegram_id};
+        ID: ${telegram_id}`;
         
       await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
     }
@@ -472,14 +470,14 @@ import dotenv from 'dotenv';
   async function sendBookingToAdmin(bookingData) {
     const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
     
-    const msg = Новая онлайн-заявка:
+    const msg = `Новая онлайн-заявка:
       Цель: ${goal}
       Направление: ${direction}
       Студия: ${address}
       Слот: ${slot || 'не указан'}
       Имя: ${name}
       Телефон: ${phone}
-      ID: ${telegram_id};
+      ID: ${telegram_id}`;
       
     return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
   }
@@ -497,11 +495,11 @@ import dotenv from 'dotenv';
 
   // For webhook setup
   app.listen(PORT, async () => {
-    console.log(🌐 Server starting on port ${PORT});
+    console.log(`🌐 Server starting on port ${PORT}`);
     try {
       await bot.telegram.deleteWebhook();
       console.log('🔄 Old webhook deleted');
-      await bot.telegram.setWebhook(${WEBAPP_URL}${WEBHOOK_PATH});
+      await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
       console.log('✅ New webhook set successfully');
     } catch (e) {
       console.log('❌ Webhook error:', e);
