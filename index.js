@@ -24,6 +24,7 @@ const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
 const awaitingScheduleUpload = new Set();
+const userCustomNames = new Map(); // Хранилище для кастомных имен пользователей
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
@@ -97,8 +98,7 @@ try {
 
   // Команды для администраторов (только команду update_schedule)
   const adminGroupCommands = [
-    { command: 'update_schedule', description: 'Обновить расписание' },
-    { command: 'cancel_schedule', description: 'Отменить загрузку расписания' }
+    { command: 'update_schedule', description: 'Обновить расписание' }
   ];
   await bot.telegram.setMyCommands(adminGroupCommands, {
     scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }  // Ограничение команд только для админа
@@ -268,44 +268,15 @@ bot.hears('Нет, ввести другое имя', async ctx => {
   await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
 });
 
-bot.on('text', async (ctx) => {
-  // Проверяем команды с упоминанием бота в группе
-  const text = ctx.message.text;
-  const botUsername = ctx.botInfo.username;
-  
-  if (text.startsWith(`/update_schedule@${botUsername}`)) {
-    console.log('📝 Команда update_schedule с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      console.log('❌ Пользователь не админ');
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    console.log('✅ Админ подтвержден, добавляем в ожидание');
-    awaitingScheduleUpload.add(ctx.chat.id);
-    return ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
-  }
-  
-  if (text.startsWith(`/cancel_schedule@${botUsername}`)) {
-    console.log('📝 Команда cancel_schedule с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    if (awaitingScheduleUpload.has(ctx.chat.id)) {
-      awaitingScheduleUpload.delete(ctx.chat.id);
-      ctx.reply('❌ Загрузка расписания отменена');
-    } else {
-      ctx.reply('ℹ️ Загрузка расписания не была активна');
-    }
-    return;
-  }
-  
-  // Существующая логика для пользовательских имен
+bot.on('text', async ctx => {
   if (!awaitingCustomName.has(ctx.chat.id)) return;
   
   const customName = ctx.message.text;
+  const userId = ctx.from.id;
+  
+  // Сохраняем кастомное имя пользователя
+  userCustomNames.set(userId, customName);
+  
   awaitingCustomName.delete(ctx.chat.id);
   
   await ctx.replyWithPhoto({ source: NEXT_PHOTO });
@@ -328,116 +299,20 @@ bot.command('contacts', ctx => {
   );
 });
 
-// Исправленная команда update_schedule
-bot.command('update_schedule', async (ctx) => {
-  console.log('📝 Команда update_schedule получена от:', ctx.chat.id, 'ADMIN_CHAT_ID:', ADMIN_CHAT_ID);
-  
-  // Исправляем проверку на админа - делаем её асинхронной
-  if (!(await isAdminUser(ctx))) {
-    console.log('❌ Пользователь не админ');
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-  }
-  
-  console.log('✅ Админ подтвержден, добавляем в ожидание');
+bot.command('update_schedule', ctx => {
+  if (!isAdminUser(ctx)) return;
   awaitingScheduleUpload.add(ctx.chat.id);
-  ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
+  ctx.reply('Отправьте файл Excel с расписанием');
 });
 
-// Команда для отмены загрузки расписания
-bot.command('cancel_schedule', async (ctx) => {
-  console.log('📝 Команда cancel_schedule получена от:', ctx.chat.id);
-  
-  if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-  }
-  
-  if (awaitingScheduleUpload.has(ctx.chat.id)) {
-    awaitingScheduleUpload.delete(ctx.chat.id);
-    ctx.reply('❌ Загрузка расписания отменена');
-  } else {
-    ctx.reply('ℹ️ Загрузка расписания не была активна');
-  }
-});
-
-// Добавляем обработчик для команд с упоминанием бота
-bot.on('text', async (ctx) => {
-  // Проверяем команды с упоминанием бота в группе
-  const text = ctx.message.text;
-  const botUsername = ctx.botInfo.username;
-  
-  if (text.startsWith(`/update_schedule@${botUsername}`)) {
-    console.log('📝 Команда update_schedule с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      console.log('❌ Пользователь не админ');
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    console.log('✅ Админ подтвержден, добавляем в ожидание');
-    awaitingScheduleUpload.add(ctx.chat.id);
-    return ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
-  }
-  
-  if (text.startsWith(`/cancel_schedule@${botUsername}`)) {
-    console.log('📝 Команда cancel_schedule с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    if (awaitingScheduleUpload.has(ctx.chat.id)) {
-      awaitingScheduleUpload.delete(ctx.chat.id);
-      ctx.reply('❌ Загрузка расписания отменена');
-    } else {
-      ctx.reply('ℹ️ Загрузка расписания не была активна');
-    }
-    return;
-  }
-  
-  // Существующая логика для пользовательских имен
-  if (!awaitingCustomName.has(ctx.chat.id)) return;
-  
-  const customName = ctx.message.text;
-  awaitingCustomName.delete(ctx.chat.id);
-  
-  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  await ctx.reply(
-    `Приятно познакомиться, ${customName}! Выберите действие:`,
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ])
-    .resize()
-  );
-});
-
-// Исправленный обработчик документов
-bot.on('document', async (ctx) => {
+bot.on('document', async ctx => {
   try {
-    // Проверяем, ожидается ли загрузка расписания от этого пользователя
     if (!awaitingScheduleUpload.has(ctx.chat.id)) {
-      return; // Просто игнорируем документ, если не ожидаем загрузку
+      return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
     }
-    
-    // Дополнительная проверка на админа
-    if (!(await isAdminUser(ctx))) {
-      awaitingScheduleUpload.delete(ctx.chat.id);
-      return ctx.reply('❌ У вас нет прав для обновления расписания');
-    }
-
-    // Удаляем пользователя из списка ожидающих
     awaitingScheduleUpload.delete(ctx.chat.id);
-
-    await ctx.reply('⏳ Обрабатываю файл расписания...');
 
     const fileId = ctx.message.document.file_id;
-    const fileName = ctx.message.document.file_name;
-    
-    // Проверяем расширение файла
-    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
-      return ctx.reply('❌ Пожалуйста, отправьте файл Excel (.xlsx или .xls)');
-    }
-
     const fileLink = await ctx.telegram.getFileLink(fileId);
     const response = await fetch(fileLink.href);
     const buffer = await response.buffer();
@@ -447,49 +322,33 @@ bot.on('document', async (ctx) => {
     const sheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    if (data.length === 0) {
-      return ctx.reply('❌ Файл пустой или не содержит данных');
-    }
+    // Преобразование данных в нужный формат, пример
+    const schedule = {};
+    data.forEach(row => {
+      const day = row.Day;
+      const time = row.Time;
+      const name = row.Name;
+      if (!schedule[day]) schedule[day] = [];
+      schedule[day].push({ time, name });
+    });
 
-    // Используем существующую функцию updateScheduleFromExcel
-    // Сначала сохраним файл временно
-    const tempFilePath = path.join(__dirname, 'temp_schedule.xlsx');
-    await fs.writeFile(tempFilePath, buffer);
-    
-    try {
-      const newSchedules = await updateScheduleFromExcel(tempFilePath);
-      
-      // Обновляем глобальную переменную schedules
-      Object.assign(schedules, newSchedules);
-      
-      // Удаляем временный файл
-      await fs.unlink(tempFilePath);
-      
-      const totalEntries = Object.values(newSchedules).reduce((sum, arr) => sum + arr.length, 0);
-      
-      ctx.reply(`✅ Расписание успешно обновлено!\n📊 Загружено записей: ${totalEntries}\n🏢 Студий: ${Object.keys(newSchedules).length}`);
-      
-    } catch (updateError) {
-      // Удаляем временный файл в случае ошибки
-      try {
-        await fs.unlink(tempFilePath);
-      } catch {}
-      
-      throw updateError;
-    }
+    // Записываем расписание в файл
+    const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
+    await fs.writeFile(filePath, JSON.stringify(schedule, null, 2));
 
+    ctx.reply('Расписание успешно обновлено');
   } catch (error) {
-    console.error('Ошибка при обработке файла расписания:', error);
-    
-    // Удаляем пользователя из списка ожидающих в случае ошибки
-    awaitingScheduleUpload.delete(ctx.chat.id);
-    
-    ctx.reply(`❌ Ошибка при обработке файла расписания: ${error.message}`);
+    console.error(error);
+    ctx.reply('Ошибка при обработке файла расписания');
   }
 });
 
+// Add temporary storage for bookings
+const pendingBookings = new Map();
+
 bot.on('contact', async ctx => {
   const chatId = ctx.chat.id;
+  const userId = ctx.from.id;
   
   // Clear reminders if exist
   if (pendingReminders.has(chatId)) {
@@ -501,10 +360,15 @@ bot.on('contact', async ctx => {
   }
 
   const { first_name, phone_number } = ctx.message.contact;
-  const telegram_id = ctx.from.id;
+  
+  // Получаем имя: сначала проверяем кастомное, если нет - берем из TG
+  const userName = userCustomNames.get(userId) || first_name;
+  
+  // Форматируем номер телефона с плюсом
+  const formattedPhone = phone_number.startsWith('+') ? phone_number : `+${phone_number}`;
   
   // Get stored booking data
-  const bookingData = pendingBookings.get(telegram_id);
+  const bookingData = pendingBookings.get(userId);
   
   if (bookingData) {
     // This is a form submission - send complete booking data
@@ -513,27 +377,24 @@ bot.on('contact', async ctx => {
       Направление: ${bookingData.direction}
       Студия: ${bookingData.address}
       Слот: ${bookingData.slot || 'не указан'}
-      Имя: ${first_name}
-      Телефон: ${phone_number}
-      ID: ${telegram_id}`;
+      Имя: ${userName}
+      Телефон: ${formattedPhone}
+      ID: ${userId}`;
       
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
-    pendingBookings.delete(telegram_id);
+    pendingBookings.delete(userId);
   } else {
     // This is a callback request
     const msg = `Новая заявка на обратный звонок:
-      Имя: ${first_name}
-      Телефон: ${phone_number}
-      ID: ${telegram_id}`;
+      Имя: ${userName}
+      Телефон: ${formattedPhone}
+      ID: ${userId}`;
       
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
   }
   
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
-
-// Add temporary storage for bookings
-const pendingBookings = new Map();
 
 // Express App
 const app = express();
@@ -599,13 +460,19 @@ app.post('/submit', async (req, res) => {
 async function sendBookingToAdmin(bookingData) {
   const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
   
+  // Получаем кастомное имя если есть
+  const userName = userCustomNames.get(telegram_id) || name;
+  
+  // Форматируем телефон с плюсом
+  const formattedPhone = phone && !phone.startsWith('+') ? `+${phone}` : phone;
+  
   const msg = `Новая онлайн-заявка:
     Цель: ${goal}
     Направление: ${direction}
     Студия: ${address}
     Слот: ${slot || 'не указан'}
-    Имя: ${name}
-    Телефон: ${phone}
+    Имя: ${userName}
+    Телефон: ${formattedPhone}
     ID: ${telegram_id}`;
     
   return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
