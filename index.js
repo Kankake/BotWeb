@@ -564,12 +564,13 @@ bot.command('users_count', async (ctx) => {
   try {
     const res = await pool.query('SELECT COUNT(*) FROM bot_users');
     const count = parseInt(res.rows[0].count, 10);
-    await ctx.reply(`👥 Всего пользователей бота: ${count}`);
+    return ctx.reply(`👥 Всего пользователей бота: ${count}`);
   } catch (err) {
-    console.error('Failed to get users count:', err);
-    await ctx.reply('Ошибка при получении количества пользователей.');
+    console.error('❌ Failed to get users count:', err);
+    return ctx.reply('Ошибка при получении количества пользователей.');
   }
 });
+
 
 
 // Команда для рассылки
