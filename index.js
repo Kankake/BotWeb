@@ -70,7 +70,6 @@ const awaitingScheduleUpload = new Set();
 const awaitingCustomName = new Set();
 const pendingBookings = new Map();
 
-const session = require('telegraf/session');
 bot.use(session());
 
 // Настройка меню команд
