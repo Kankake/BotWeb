@@ -295,51 +295,45 @@
     );
   });
 
-bot.command('update_schedule', ctx => {
-  if (!isAdminUser(ctx)) return;
-  awaitingScheduleUpload.add(ctx.chat.id);
-  ctx.reply('Отправьте файл Excel с расписанием');
-});
+  bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) => {
+    if (!await isAdminUser(ctx)) return;
 
+    console.log('🎯 Command received:', ctx.message.text);
+    awaitingScheduleUpload.add(ctx.chat.id); // ждём файл
 
-bot.on('document', async ctx => {
-  try {
-    if (!awaitingScheduleUpload.has(ctx.chat.id)) {
-      return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
+    try {
+      await ctx.reply('Отправьте Excel файл с расписанием', { disable_notification: false });
+    } catch (error) {
+      console.log('📝 Error details:', {
+        chatId: ctx.chat.id,
+        error: error.message
+      });
     }
-    awaitingScheduleUpload.delete(ctx.chat.id);
+  });
 
-    const fileId = ctx.message.document.file_id;
-    const fileLink = await ctx.telegram.getFileLink(fileId);
-    const response = await fetch(fileLink.href);
-    const buffer = await response.buffer();
 
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(sheet);
+  bot.on('document', async (ctx) => {
+    if (!await isAdminUser(ctx)) {
+      return;
+    }
 
-    // Преобразование данных в нужный формат, пример
-    const schedule = {};
-    data.forEach(row => {
-      const day = row.Day;
-      const time = row.Time;
-      const name = row.Name;
-      if (!schedule[day]) schedule[day] = [];
-      schedule[day].push({ time, name });
-    });
-
-    // Записываем расписание в файл
-    const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
-    await fs.writeFile(filePath, JSON.stringify(schedule, null, 2));
-
-    ctx.reply('Расписание успешно обновлено');
-  } catch (error) {
-    console.error(error);
-    ctx.reply('Ошибка при обработке файла расписания');
-  }
-});
-
+    try {
+      const file = await ctx.telegram.getFile(ctx.message.document.file_id);
+      const filePath = path.join(__dirname, 'temp.xlsx');
+      
+      const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+      const response = await fetch(fileUrl);
+      const buffer = await response.buffer();
+      await fs.writeFile(filePath, buffer);
+      
+      schedules = await updateScheduleFromExcel(filePath);
+      await fs.unlink(filePath);
+      
+      ctx.reply('✅ Расписание успешно обновлено!');
+    } catch (error) {
+      ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
+    }
+  });
 
   bot.hears('Контакты', ctx => {
     ctx.reply(
