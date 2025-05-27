@@ -109,16 +109,19 @@ async function updateScheduleFromExcel(filePath) {
       schedules[row.address] = [];
     }
     
-    schedules[row.address].push({
-      direction: row.direction,
+    // Create object with specific order
+    const orderedEntry = {
       date: row.date,
       time: row.time,
+      direction: row.direction,
       address: row.address
-    });
+    };
+    
+    schedules[row.address].push(orderedEntry);
   });
 
   await fs.writeFile(
-    path.join(__dirname,'public', 'data', 'schedules.json'),
+    path.join(__dirname, 'public', 'data', 'schedules.json'),
     JSON.stringify(schedules, null, 2)
   );
   
