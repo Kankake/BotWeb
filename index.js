@@ -447,15 +447,23 @@ bot.on('text', async (ctx) => {
   
   // Добавляем обработку команды users_count с упоминанием
   if (text.startsWith(`/users_count@${botUsername}`)) {
-    console.log('📝 Команда users_count с упоминанием получена от:', ctx.chat.id);
-    console.log('Using DB URL:', process.env.DATABASE_URL);
+  console.log('📝 Команда users_count с упоминанием получена от:', ctx.chat.id);
+  console.log('Using DB URL:', process.env.DATABASE_URL);
 
-    if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    return ctx.reply(`👥 Всего пользователей бота: ${botUsers.size}`);
+  if (!(await isAdminUser(ctx))) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
   }
+
+  try {
+    const result = await pool.query('SELECT COUNT(*) FROM bot_users');
+    const count = result.rows[0].count;
+    return ctx.reply(`👥 Всего пользователей бота: ${count}`);
+  } catch (err) {
+    console.error('❌ Failed to get user count:', err);
+    return ctx.reply('⚠️ Ошибка при получении количества пользователей');
+  }
+}
+
   
   // Добавляем обработку команды broadcast с упоминанием
   if (text.startsWith(`/broadcast@${botUsername}`)) {
