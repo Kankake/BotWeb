@@ -86,24 +86,26 @@
     }
   });
   // Set up menu commands
-  try {
-    const publicCommands = [
-      { command: 'start', description: 'Начать заново' },
-      { command: 'contacts', description: 'Контакты студии' }
-    ];
-    await bot.telegram.setMyCommands(publicCommands);
-    const adminCommands = [
-      ...publicCommands,
-      { command: 'check_data', description: 'Проверить данные' },
-      { command: 'update_schedule', description: 'Обновить расписание (админ)' }
-    ];
-    await bot.telegram.setMyCommands(adminCommands, {
-      scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
-    });
-    await bot.telegram.setChatMenuButton('default', { type: 'commands' });
-  } catch (err) {
-    console.error('Не удалось установить команды меню:', err);
-  }
+try {
+  // Public commands for regular users
+  const publicCommands = [
+    { command: 'start', description: 'Начать заново' },
+    { command: 'contacts', description: 'Контакты студии' }
+  ];
+  await bot.telegram.setMyCommands(publicCommands);
+
+  // Admin group commands - only update_schedule
+  const adminGroupCommands = [
+    { command: 'update_schedule', description: 'Обновить расписание' }
+  ];
+  await bot.telegram.setMyCommands(adminGroupCommands, {
+    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
+  });
+
+} catch (err) {
+  console.log('Command menu setup:', err);
+}
+
 
   // Update schedule function
   async function updateScheduleFromExcel(filePath) {
