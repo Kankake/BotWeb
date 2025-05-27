@@ -294,42 +294,32 @@
     );
   });
 
-  try {
-    // Отправляем промежуточное сообщение, что команда принята
-    await ctx.reply('✅ Команда принята! Пожалуйста, отправьте Excel файл с расписанием.');
-
-    console.log('🎯 Command received:', ctx.message.text);
-
-  } catch (error) {
-    console.log('📝 Error details:', {
-      chatId: ctx.chat.id,
-      error: error.message
-    });
-  }
-
 
   bot.on('document', async (ctx) => {
-    if (!await isAdminUser(ctx)) {
-      return;
-    }
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return;
+  }
 
-    try {
-      const file = await ctx.telegram.getFile(ctx.message.document.file_id);
-      const filePath = path.join(__dirname, 'temp.xlsx');
-      
-      const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
-      const response = await fetch(fileUrl);
-      const buffer = await response.buffer();
-      await fs.writeFile(filePath, buffer);
-      
-      schedules = await updateScheduleFromExcel(filePath);
-      await fs.unlink(filePath);
-      
-      ctx.reply('✅ Расписание успешно обновлено!');
-    } catch (error) {
-      ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
-    }
-  });
+  try {
+    const file = await ctx.telegram.getFile(ctx.message.document.file_id);
+    const filePath = path.join(__dirname, 'temp.xlsx');
+    
+    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    const response = await fetch(fileUrl);
+    const buffer = await response.buffer();
+    await fs.writeFile(filePath, buffer);
+    
+    schedules = await updateScheduleFromExcel(filePath);
+    await fs.unlink(filePath);
+    
+    // Отправляем сообщение об успешном обновлении расписания
+    await bot.telegram.sendMessage(ADMIN_CHAT_ID, '✅ Расписание успешно обновлено!');
+  } catch (error) {
+    // Ошибка при обновлении расписания
+    await bot.telegram.sendMessage(ADMIN_CHAT_ID, '❌ Ошибка при обновлении расписания: ' + error.message);
+  }
+});
+
 
   bot.hears('Контакты', ctx => {
     ctx.reply(
@@ -483,15 +473,26 @@
     WEBAPP_URL
   });
 
-  // For command handling
+
   bot.command(['update_schedule','update_schedule@Levita_nvrs_bot'], async (ctx) => {
-    console.log('📝 Update schedule command received');
-    console.log('From chat ID:', ctx.chat.id);
-    if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-      return;
-    }
-    ctx.reply('Отправьте Excel файл с расписанием');
-  });
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды.');
+  }
+
+  try {
+    // Отправляем промежуточное сообщение в чат с админами
+    await bot.telegram.sendMessage(ADMIN_CHAT_ID, '✅ Команда принята! Пожалуйста, отправьте Excel файл с расписанием.');
+
+    console.log('🎯 Command received:', ctx.message.text);
+
+  } catch (error) {
+    console.log('📝 Error details:', {
+      chatId: ctx.chat.id,
+      error: error.message
+    });
+  }
+});
+
 
   // For webhook setup
   app.listen(PORT, async () => {
