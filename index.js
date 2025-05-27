@@ -363,8 +363,79 @@ bot.hears('Контакты', (ctx) => {
 
 // Запуск веб-сервера и вебхука
 const app = express();
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+  app.use(express.json());
+  app.use(express.static(path.join(__dirname, 'public')));
+
+  // Endpoints
+  app.post('/slots', (req, res) => {
+    const { direction, address } = req.body;
+    const today = new Date();
+    console.log('REQUEST direction:', direction, '| address:', address);
+    const arr = schedules[address] || [];
+    console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
+    const slots = arr
+      .filter(slot => {
+        const d = new Date(slot.date);
+        const diff = (d - today) / (1000 * 60 * 60 * 24);
+        const match = slot.direction.trim() === direction.trim();
+        if (match && diff >= 0 && diff < 3) {
+          console.log('MATCH:', slot.direction, '|', direction, '|', slot.date, slot.time);
+        }
+        return match && diff >= 0 && diff < 3;
+      })
+      .map(slot => ({ date: slot.date, time: slot.time }));
+    res.json({ ok: true, slots });
+  });
+
+  app.get('/json', async (_req, res) => {
+    try {
+      const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
+      const data = await fs.readFile(filePath, 'utf8');
+      res.json(JSON.parse(data));
+    } catch (err) {
+      res.status(500).send('Ошибка чтения или парсинга файла');
+    }
+  });
+
+  app.post('/submit', async (req, res) => {
+    try {
+      const bookingData = req.body;
+      // Store booking data
+      pendingBookings.set(bookingData.telegram_id, bookingData);
+      
+      await bot.telegram.sendMessage(
+        bookingData.telegram_id,
+        'Спасибо! Для подтверждения, пожалуйста, поделитесь контактом.',
+        {
+          reply_markup: {
+            keyboard: [[{ text: '📲 Подтвердить запись', request_contact: true }]],
+            resize_keyboard: true,
+            one_time_keyboard: true
+          }
+        }
+      );
+      
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Error in /submit:', err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  async function sendBookingToAdmin(bookingData) {
+    const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
+    
+    const msg = `Новая онлайн-заявка:
+      Цель: ${goal}
+      Направление: ${direction}
+      Студия: ${address}
+      Слот: ${slot || 'не указан'}
+      Имя: ${name}
+      Телефон: ${phone}
+      ID: ${telegram_id}`;
+      
+    return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
+  }
 
 app.get('/', (req, res) => {
   res.send('Server is running...');
