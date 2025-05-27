@@ -295,15 +295,10 @@
     );
   });
 
-bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], ctx => {
-  console.log('Получена команда /update_schedule из чата:', ctx.chat?.id);
+bot.command('update_schedule', ctx => {
   if (!isAdminUser(ctx)) return;
   awaitingScheduleUpload.add(ctx.chat.id);
   ctx.reply('Отправьте файл Excel с расписанием');
-});
-
-bot.on('message', ctx => {
-  console.log('Получено сообщение:', ctx.message?.text || '[не текст]');
 });
 
 
@@ -500,17 +495,16 @@ bot.on('document', async ctx => {
 
   // For webhook setup
   app.listen(PORT, async () => {
-  console.log(`Сервер слушает порт ${PORT}`);
-  try {
-    await bot.telegram.deleteWebhook();
-    console.log('🔄 Old webhook deleted');
-    await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-    console.log('✅ New webhook set successfully');
-  } catch (e) {
-    console.error('❌ Webhook error:', e);
-  }
-});
-
+    console.log(`🌐 Server starting on port ${PORT}`);
+    try {
+      await bot.telegram.deleteWebhook();
+      console.log('🔄 Old webhook deleted');
+      await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
+      console.log('✅ New webhook set successfully');
+    } catch (e) {
+      console.log('❌ Webhook error:', e);
+    }
+  });
 
   // Graceful shutdown
   process.once('SIGINT', () => {
