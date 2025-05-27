@@ -284,13 +284,20 @@ bot.command('contacts', ctx => {
 });
 
 bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) => {
-  console.log('Command received from:', ctx.chat.id, 'Type:', ctx.chat.type);
+  console.log('📝 Update command triggered');
+  console.log('From chat:', {
+    id: ctx.chat.id,
+    type: ctx.chat.type,
+    title: ctx.chat.title,
+    username: ctx.from.username
+  });
   
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    console.log('Unauthorized access attempt');
+    console.log('❌ Access denied for chat ID:', ctx.chat.id);
     return;
   }
   
+  console.log('✅ Admin access granted');
   ctx.reply('Отправьте Excel файл с расписанием');
 });
 
