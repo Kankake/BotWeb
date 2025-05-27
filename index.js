@@ -7,6 +7,157 @@ import fs from 'fs/promises';
 import { Telegraf, Markup } from 'telegraf';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
+// Добавить после всех импортов, до инициализации констант
+
+import pkg from 'pg';
+const { Pool } = pkg;
+
+// Инициализация базы данных
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+// Создание таблиц при запуске
+async function initDatabase() {
+  try {
+    // Таблица для расписаний
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schedules (
+        id SERIAL PRIMARY KEY,
+        address VARCHAR(255) NOT NULL,
+        schedule_data JSONB NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Таблица для пользователей бота
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bot_users (
+        user_id BIGINT PRIMARY KEY,
+        first_name VARCHAR(255),
+        username VARCHAR(255),
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Таблица для пользовательских имен
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_names (
+        chat_id BIGINT PRIMARY KEY,
+        custom_name VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    console.log('✅ Database tables initialized');
+  } catch (err) {
+    console.error('❌ Database initialization error:', err);
+  }
+}
+
+// Функции для работы с пользователями
+async function addUser(userId, firstName, username) {
+  try {
+    await pool.query(
+      'INSERT INTO bot_users (user_id, first_name, username) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING',
+      [userId, firstName || '', username || '']
+    );
+    console.log(`👤 User added/updated: ${userId}`);
+  } catch (err) {
+    console.error('❌ Failed to add user:', err);
+  }
+}
+
+async function getUsersCount() {
+  try {
+    const result = await pool.query('SELECT COUNT(*) FROM bot_users');
+    return parseInt(result.rows[0].count);
+  } catch (err) {
+    console.error('❌ Failed to get users count:', err);
+    return 0;
+  }
+}
+
+async function getAllUsers() {
+  try {
+    const result = await pool.query('SELECT user_id FROM bot_users');
+    return result.rows.map(row => row.user_id);
+  } catch (err) {
+    console.error('❌ Failed to get all users:', err);
+    return [];
+  }
+}
+
+async function removeUser(userId) {
+  try {
+    await pool.query('DELETE FROM bot_users WHERE user_id = $1', [userId]);
+    console.log(`👤 User removed: ${userId}`);
+  } catch (err) {
+    console.error('❌ Failed to remove user:', err);
+  }
+}
+
+// Функции для работы с именами пользователей
+async function setUserName(chatId, name) {
+  try {
+    await pool.query(
+      'INSERT INTO user_names (chat_id, custom_name) VALUES ($1, $2) ON CONFLICT (chat_id) DO UPDATE SET custom_name = $2, updated_at = CURRENT_TIMESTAMP',
+      [chatId, name]
+    );
+  } catch (err) {
+    console.error('❌ Failed to set user name:', err);
+  }
+}
+
+async function getUserName(chatId) {
+  try {
+    const result = await pool.query('SELECT custom_name FROM user_names WHERE chat_id = $1', [chatId]);
+    return result.rows[0]?.custom_name || null;
+  } catch (err) {
+    console.error('❌ Failed to get user name:', err);
+    return null;
+  }
+}
+
+// Функции для работы с расписанием
+async function saveSchedules(schedulesData) {
+  try {
+    // Очищаем старые данные
+    await pool.query('DELETE FROM schedules');
+    
+    // Сохраняем новые данные
+    for (const [address, scheduleArray] of Object.entries(schedulesData)) {
+      await pool.query(
+        'INSERT INTO schedules (address, schedule_data) VALUES ($1, $2)',
+        [address, JSON.stringify(scheduleArray)]
+      );
+    }
+    console.log('✅ Schedules saved to database');
+  } catch (err) {
+    console.error('❌ Failed to save schedules:', err);
+  }
+}
+
+async function loadSchedules() {
+  try {
+    const result = await pool.query('SELECT address, schedule_data FROM schedules');
+    const schedules = {};
+    
+    for (const row of result.rows) {
+      schedules[row.address] = JSON.parse(row.schedule_data);
+    }
+    
+    console.log(`✅ Loaded schedules for ${Object.keys(schedules).length} addresses`);
+    return schedules;
+  } catch (err) {
+    console.error('❌ Failed to load schedules:', err);
+    return {};
+  }
+}
+
+// Инициализируем базу данных при запуске
+await initDatabase();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,10 +176,10 @@ const WEBHOOK_PATH = '/tg-webhook';
 
 const awaitingScheduleUpload = new Set();
 const awaitingCustomName = new Set();
-// Добавляем хранилище для пользовательских имен
-const userNames = new Map();
-// Добавляем хранилище для всех пользователей бота
-const botUsers = new Set();
+const awaitingBroadcast = new Set();
+const pendingReminders = new Map();
+const pendingBookings = new Map();
+
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
@@ -72,15 +223,7 @@ const initDataDir = async () => {
 await initDataDir();
 
 // Load monthly-updatable schedule from JSON file
-let schedules = {};
-try {
-  const dataPath = path.join(__dirname, 'public', 'data', 'schedules.json');
-  const data = await fs.readFile(dataPath, 'utf8');
-  schedules = JSON.parse(data);
-  console.log('✅ Loaded schedules from data/schedules.json');
-} catch (err) {
-  console.error('❌ Failed to load schedules.json:', err);
-}
+let schedules = await loadSchedules();
 
 // Загружаем пользователей из файла
 try {
@@ -95,7 +238,6 @@ try {
 
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
-const pendingReminders = new Map();
 
 // Функция для сохранения пользователей в файл
 async function saveUsersToFile() {
@@ -161,55 +303,53 @@ async function updateScheduleFromExcel(filePath) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const data = XLSX.utils.sheet_to_json(sheet);
 
-  const schedules = {};
+  const newSchedules = {};
 
   data.forEach(row => {
-    // Convert Excel date to YYYY-MM-DD format
     let dateValue = row.date;
     if (typeof dateValue === 'number') {
-      // If Excel date is stored as number
       dateValue = new Date((dateValue - 25569) * 86400 * 1000);
     } else {
-      // If date is string, parse it
       dateValue = new Date(dateValue);
     }
     const formattedDate = dateValue.toISOString().split('T')[0];
 
-    if (!schedules[row.address]) {
-      schedules[row.address] = [];
+    if (!newSchedules[row.address]) {
+      newSchedules[row.address] = [];
     }
 
     const orderedEntry = {
       date: formattedDate,
       time: row.time,
-      direction: row.direction.trim(), // Add trim() to normalize strings
+      direction: row.direction.trim(),
       address: row.address.trim()
     };
 
-    schedules[row.address].push(orderedEntry);
+    newSchedules[row.address].push(orderedEntry);
   });
 
-  // Add console.log to verify data structure
-  console.log('Generated schedules:', schedules);
+  console.log('Generated schedules:', newSchedules);
 
-  await fs.writeFile(
-    path.join(__dirname, 'public', 'data', 'schedules.json'),
-    JSON.stringify(schedules, null, 2)
-  );
+  // Сохраняем в базу данных вместо файла
+  await saveSchedules(newSchedules);
+  
+  // Обновляем глобальную переменную
+  schedules = newSchedules;
 
-  return schedules;
+  return newSchedules;
 }
 
 bot.start(async ctx => {
   const firstName = ctx.from.first_name || 'клиент';
+  const username = ctx.from.username || '';
   const chatId = ctx.chat.id;
   const userId = ctx.from.id;
   
   // Добавляем пользователя в базу
-  await addUser(userId);
+  await addUser(userId, firstName, username);
   
   // Сохраняем имя из Telegram как дефолтное
-  userNames.set(chatId, firstName);
+  await setUserName(chatId, firstName);
   
   // Send welcome photo first
   if (pendingReminders.has(chatId)) {
@@ -252,7 +392,6 @@ bot.start(async ctx => {
   pendingReminders.set(chatId, {t3, t15, t24 });
 
   await ctx.replyWithPhoto({ source: WELCOME_PHOTO });
-  
   
   await ctx.reply(
     `Приветствую, наш будущий клиент!\n` +
@@ -322,8 +461,7 @@ bot.hears('Нет, ввести другое имя', async ctx => {
 });
 
 bot.on('text', async (ctx) => {
-  // Добавляем пользователя при любом текстовом сообщении
-  await addUser(ctx.from.id);
+  await addUser(ctx.from.id, ctx.from.first_name, ctx.from.username);
   
   // Проверяем команды с упоминанием бота в группе
   const text = ctx.message.text;
@@ -384,8 +522,7 @@ bot.on('text', async (ctx) => {
   // Обработка пользовательского имени
   if (awaitingCustomName.has(ctx.chat.id)) {
     const customName = ctx.message.text;
-    // Сохраняем пользовательское имя
-    userNames.set(ctx.chat.id, customName);
+    await setUserName(ctx.chat.id, customName);
     awaitingCustomName.delete(ctx.chat.id);
     
     await ctx.replyWithPhoto({ source: NEXT_PHOTO });
@@ -414,31 +551,29 @@ bot.on('text', async (ctx) => {
     
      let successCount = 0;
      let errorCount = 0;
+     
+     const allUsers = await getAllUsers();
     
-     for (const userId of botUsers) {
+     for (const userId of allUsers) {
        try {
          await bot.telegram.sendMessage(userId, broadcastMessage);
          successCount++;
-         // Небольшая задержка, чтобы не превысить лимиты API
          await new Promise(resolve => setTimeout(resolve, 50));
        } catch (error) {
          errorCount++;
          console.error(`Failed to send message to user ${userId}:`, error.message);
         
-         // Если пользователь заблокировал бота, удаляем его из списка
          if (error.message.includes('blocked') || error.message.includes('user not found') || error.message.includes('chat not found')) {
-           botUsers.delete(userId);
+           await removeUser(userId);
          }
        }
      }
     
-     // Сохраняем обновленный список пользователей
-     await saveUsersToFile();
-    
-     await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${botUsers.size}`);
+     const finalCount = await getUsersCount();
+     await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${finalCount}`);
      return;
    }
- });
+  });
 
 bot.command('contacts', ctx => {
   ctx.reply(
@@ -486,11 +621,9 @@ bot.command('users_count', async (ctx) => {
     return ctx.reply('❌ У вас нет прав для выполнения этой команды');
   }
   
-  ctx.reply(`👥 Всего пользователей бота: ${botUsers.size}`);
+  const count = await getUsersCount();
+  ctx.reply(`👥 Всего пользователей бота: ${count}`);
 });
-
-// Хранилище для ожидания сообщений рассылки
-const awaitingBroadcast = new Set();
 
 // Команда для рассылки
 bot.command('broadcast', async (ctx) => {
@@ -582,8 +715,7 @@ bot.on('document', async (ctx) => {
 bot.on('contact', async ctx => {
   const chatId = ctx.chat.id;
   
-  // Добавляем пользователя при отправке контакта
-  await addUser(ctx.from.id);
+  await addUser(ctx.from.id, ctx.from.first_name, ctx.from.username);
   
   // Clear reminders if exist
   if (pendingReminders.has(chatId)) {
@@ -598,7 +730,7 @@ bot.on('contact', async ctx => {
   const telegram_id = ctx.from.id;
   
   // Получаем сохраненное имя пользователя или используем имя из контакта
-  const userName = userNames.get(chatId) || first_name;
+  const userName = await getUserName(chatId) || first_name;
   
   // Добавляем + к номеру телефона, если его нет
   const formattedPhone = phone_number.startsWith('+') ? phone_number : `+${phone_number}`;
@@ -632,18 +764,16 @@ bot.on('contact', async ctx => {
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
 
-// Add temporary storage for bookings
-const pendingBookings = new Map();
 
 // Добавляем обработчики для всех остальных действий пользователей
 bot.hears(/.*/, async (ctx) => {
   // Добавляем пользователя при любом сообщении
-  await addUser(ctx.from.id);
+  await addUser(ctx.from.id, ctx.from.first_name, ctx.from.username);
 });
 
 bot.on('callback_query', async (ctx) => {
   // Добавляем пользователя при нажатии на кнопки
-  await addUser(ctx.from.id);
+  await addUser(ctx.from.id, ctx.from.first_name, ctx.from.username);
 });
 
 // Express App
@@ -673,24 +803,21 @@ app.post('/slots', (req, res) => {
 });
 
 // Добавляем новый endpoint для получения имени пользователя
-app.get('/user-name/:telegram_id', (req, res) => {
+app.get('/user-name/:telegram_id', async (req, res) => {
   const telegramId = parseInt(req.params.telegram_id);
-  const userName = Array.from(userNames.entries())
-    .find(([chatId, name]) => chatId === telegramId)?.[1];
+  const userName = await getUserName(telegramId);
   
   res.json({ 
     ok: true, 
-    name: userName || null 
+    name: userName 
   });
 });
 
 app.get('/json', async (_req, res) => {
   try {
-    const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
-    const data = await fs.readFile(filePath, 'utf8');
-    res.json(JSON.parse(data));
+    res.json(schedules);
   } catch (err) {
-    res.status(500).send('Ошибка чтения или парсинга файла');
+    res.status(500).json({ error: 'Ошибка получения расписания' });
   }
 });
 
