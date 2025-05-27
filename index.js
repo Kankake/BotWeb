@@ -437,6 +437,8 @@ const app = express();
     return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
   }
 
+app.use(bot.webhookCallback(WEBHOOK_PATH));
+
 app.get('/', (req, res) => {
   res.send('Server is running...');
 });
