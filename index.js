@@ -299,7 +299,7 @@
     
     try {
       // Force message sending with notification
-      await ctx.telegram.sendMessage(
+      await ctx.reply(
         ctx.chat.id, 
         'Отправьте Excel файл с расписанием',
         { disable_notification: false }
@@ -486,16 +486,6 @@
     PORT,
     WEBHOOK_PATH,
     WEBAPP_URL
-  });
-
-  // For command handling
-  bot.command('update_schedule', async (ctx) => {
-    console.log('📝 Update schedule command received');
-    console.log('From chat ID:', ctx.chat.id);
-    if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-      return;
-    }
-    ctx.reply('Отправьте Excel файл с расписанием');
   });
 
   // For webhook setup
