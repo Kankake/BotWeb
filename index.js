@@ -284,6 +284,7 @@ bot.command('contacts', ctx => {
 });
 
 bot.command('update_schedule', async (ctx) => {
+  console.log('Received chat ID:', ctx.chat.id, 'Admin chat ID:', ADMIN_CHAT_ID);
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
     return;
   }
@@ -458,17 +459,34 @@ async function sendBookingToAdmin(bookingData) {
 // Telegram webhook callback
 app.use(bot.webhookCallback(WEBHOOK_PATH));
 
-// Start server and set webhook
+// At app startup
+console.log('🚀 Bot starting up...');
+console.log('Environment:', {
+  PORT,
+  WEBHOOK_PATH,
+  WEBAPP_URL
+});
+
+// For command handling
+bot.command('update_schedule', async (ctx) => {
+  console.log('📝 Update schedule command received');
+  console.log('From chat ID:', ctx.chat.id);
+  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
+    return;
+  }
+  ctx.reply('Отправьте Excel файл с расписанием');
+});
+
+// For webhook setup
 app.listen(PORT, async () => {
-  console.log(`🌐 Server listening on port ${PORT}`);
+  console.log(`🌐 Server starting on port ${PORT}`);
   try {
     await bot.telegram.deleteWebhook();
-    console.log('✅ Old webhook deleted');
+    console.log('🔄 Old webhook deleted');
     await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-    console.log(`✅ Webhook set to ${WEBAPP_URL}${WEBHOOK_PATH}`);
+    console.log('✅ New webhook set successfully');
   } catch (e) {
-    console.error('❌ Failed to set webhook:', e);
-    process.exit(1);
+    console.log('❌ Webhook error:', e);
   }
 });
 
