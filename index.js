@@ -431,44 +431,44 @@ bot.on('text', async (ctx) => {
   }
   
   // Обработка рассылки
-  if (awaitingBroadcast.has(ctx.chat.id)) {
-    if (!(await isAdminUser(ctx))) {
-      awaitingBroadcast.delete(ctx.chat.id);
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
+//   if (awaitingBroadcast.has(ctx.chat.id)) {
+//     if (!(await isAdminUser(ctx))) {
+//       awaitingBroadcast.delete(ctx.chat.id);
+//       return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+//     }
     
-    const broadcastMessage = text;
-    awaitingBroadcast.delete(ctx.chat.id);
+//     const broadcastMessage = text;
+//     awaitingBroadcast.delete(ctx.chat.id);
     
-    await ctx.reply('📤 Начинаю рассылку...');
+//     await ctx.reply('📤 Начинаю рассылку...');
     
-    let successCount = 0;
-    let errorCount = 0;
+//     let successCount = 0;
+//     let errorCount = 0;
     
-    for (const userId of botUsers) {
-      try {
-        await bot.telegram.sendMessage(userId, broadcastMessage);
-        successCount++;
-        // Небольшая задержка, чтобы не превысить лимиты API
-        await new Promise(resolve => setTimeout(resolve, 50));
-      } catch (error) {
-        errorCount++;
-        console.error(`Failed to send message to user ${userId}:`, error.message);
+//     for (const userId of botUsers) {
+//       try {
+//         await bot.telegram.sendMessage(userId, broadcastMessage);
+//         successCount++;
+//         // Небольшая задержка, чтобы не превысить лимиты API
+//         await new Promise(resolve => setTimeout(resolve, 50));
+//       } catch (error) {
+//         errorCount++;
+//         console.error(`Failed to send message to user ${userId}:`, error.message);
         
-        // Если пользователь заблокировал бота, удаляем его из списка
-        if (error.message.includes('blocked') || error.message.includes('user not found') || error.message.includes('chat not found')) {
-          botUsers.delete(userId);
-        }
-      }
-    }
+//         // Если пользователь заблокировал бота, удаляем его из списка
+//         if (error.message.includes('blocked') || error.message.includes('user not found') || error.message.includes('chat not found')) {
+//           botUsers.delete(userId);
+//         }
+//       }
+//     }
     
-    // Сохраняем обновленный список пользователей
-    await saveUsersToFile();
+//     // Сохраняем обновленный список пользователей
+//     await saveUsersToFile();
     
-    await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${botUsers.size}`);
-    return;
-  }
-});
+//     await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${botUsers.size}`);
+//     return;
+//   }
+// });
 
 bot.command('contacts', ctx => {
   ctx.reply(
@@ -799,4 +799,4 @@ process.once('SIGTERM', () => {
   if (bot.isRunning) {
     bot.stop('SIGTERM')
   }
-})
+})})
