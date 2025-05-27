@@ -523,7 +523,7 @@ bot.on('contact', async ctx => {
     // This is a callback request
     const msg = `Новая заявка на обратный звонок:
       Имя: ${first_name}
-      Телефон: ${phone_number}
+      Телефон: `+${phone_number}`
       ID: ${telegram_id}`;
       
     await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
@@ -605,7 +605,7 @@ async function sendBookingToAdmin(bookingData) {
     Студия: ${address}
     Слот: ${slot || 'не указан'}
     Имя: ${name}
-    Телефон: ${phone}
+    Телефон: ` +${phone}`
     ID: ${telegram_id}`;
     
   return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
