@@ -502,42 +502,50 @@ async function fetchAndShowSlots(days = 3) {
     const response = await fetch('data/schedules.json');
     if (!response.ok) throw new Error('Ошибка сети');
 
-    // schedules.json — объект с ключами-адресами
     const schedulesObj = await response.json();
     const allSlots = schedulesObj[data.address] || [];
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time part to start of day
+    
     const showDays = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(today);
       d.setDate(d.getDate() + i);
-      showDays.push(d.toISOString().slice(0, 10));
+      showDays.push(d.toISOString().split('T')[0]); // Get YYYY-MM-DD format
     }
 
     const cont = document.getElementById('options-slots');
     cont.innerHTML = '';
-    // Устанавливаем ограничения и скролл, если контент превышает
     cont.style.maxHeight = '300px';
     cont.style.overflowY = 'auto';
 
+    let hasSlots = false;
+
     showDays.forEach(day => {
       const dateStr = new Date(day).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-      allSlots
-        .filter(slot => slot.direction.trim() === data.direction.trim() && slot.date === day)
-        .forEach(s => {
-          const b = document.createElement('div');
-          b.className = 'option';
-          b.textContent = `${dateStr} — ${s.time}`;
-          b.onclick = () => {
-            document.querySelectorAll('#options-slots .option').forEach(o => o.classList.remove('selected'));
-            b.classList.add('selected');
-            data.slot = `${day}, ${s.time}`;
-          };
-          cont.appendChild(b);
-        });
+      const daySlots = allSlots.filter(slot => 
+        slot.direction.trim() === data.direction.trim() && 
+        slot.date === day
+      );
+
+      daySlots.forEach(s => {
+        hasSlots = true;
+        const b = document.createElement('div');
+        b.className = 'option';
+        b.textContent = `${dateStr} — ${s.time}`;
+        b.onclick = () => {
+          document.querySelectorAll('#options-slots .option').forEach(o => 
+            o.classList.remove('selected')
+          );
+          b.classList.add('selected');
+          data.slot = `${day}, ${s.time}`;
+        };
+        cont.appendChild(b);
+      });
     });
 
-    if (!cont.hasChildNodes()) {
+    if (!hasSlots) {
       alert(`Нет доступных слотов на ближайшие ${days} дней`);
     } else {
       show('step-5');
@@ -547,6 +555,7 @@ async function fetchAndShowSlots(days = 3) {
     alert('Не удалось загрузить расписание');
   }
 }
+
   </script>
 </body>
 </html>
