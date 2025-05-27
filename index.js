@@ -34,8 +34,6 @@ async function initDatabase() {
   try {
     // Таблица для расписаний
     await pool.query(`
-      DELETE FROM schedules;
-
       CREATE TABLE IF NOT EXISTS schedules (
         id SERIAL PRIMARY KEY,
         address VARCHAR(255) NOT NULL,
