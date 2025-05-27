@@ -101,32 +101,46 @@ async function updateScheduleFromExcel(filePath) {
   const workbook = XLSX.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const data = XLSX.utils.sheet_to_json(sheet);
-  
+
   const schedules = {};
-  
+
   data.forEach(row => {
+    // Convert Excel date to YYYY-MM-DD format
+    let dateValue = row.date;
+    if (typeof dateValue === 'number') {
+      // If Excel date is stored as number
+      dateValue = new Date((dateValue - 25569) * 86400 * 1000);
+    } else {
+      // If date is string, parse it
+      dateValue = new Date(dateValue);
+    }
+    const formattedDate = dateValue.toISOString().split('T')[0];
+
     if (!schedules[row.address]) {
       schedules[row.address] = [];
     }
-    
-    // Create object with specific order
+
     const orderedEntry = {
-      date: row.date,
+      date: formattedDate,
       time: row.time,
-      direction: row.direction,
-      address: row.address
+      direction: row.direction.trim(), // Add trim() to normalize strings
+      address: row.address.trim()
     };
-    
+
     schedules[row.address].push(orderedEntry);
   });
+
+  // Add console.log to verify data structure
+  console.log('Generated schedules:', schedules);
 
   await fs.writeFile(
     path.join(__dirname, 'public', 'data', 'schedules.json'),
     JSON.stringify(schedules, null, 2)
   );
-  
+
   return schedules;
 }
+
 bot.start(async ctx => {
   const firstName = ctx.from.first_name || 'клиент';
   const chatId = ctx.chat.id;
