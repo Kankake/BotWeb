@@ -294,12 +294,6 @@
     );
   });
 
-  bot.command('update_schedule', async (ctx) => {
-  // Проверяем, что команду отправил только администратор
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды.');
-  }
-
   try {
     // Отправляем промежуточное сообщение, что команда принята
     await ctx.reply('✅ Команда принята! Пожалуйста, отправьте Excel файл с расписанием.');
@@ -312,7 +306,6 @@
       error: error.message
     });
   }
-});
 
 
   bot.on('document', async (ctx) => {
