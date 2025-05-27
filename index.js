@@ -368,8 +368,10 @@ bot.on('text', async (ctx) => {
     if (awaitingBroadcast.has(ctx.chat.id)) {
       awaitingBroadcast.delete(ctx.chat.id);
     } else {
-      const broadcastMessage = text;
-    awaitingBroadcast.delete(ctx.chat.id);
+      awaitingBroadcast.add(ctx.chat.id);
+      await ctx.reply('✍️ Пожалуйста, отправьте текст сообщения для рассылки');
+
+      const broadcastMessage = ctx.message.text;
     
     await ctx.reply('📤 Начинаю рассылку...');
     
