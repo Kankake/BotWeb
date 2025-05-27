@@ -268,7 +268,41 @@ bot.hears('Нет, ввести другое имя', async ctx => {
   await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
 });
 
-bot.on('text', async ctx => {
+bot.on('text', async (ctx) => {
+  // Проверяем команды с упоминанием бота в группе
+  const text = ctx.message.text;
+  const botUsername = ctx.botInfo.username;
+  
+  if (text.startsWith(`/update_schedule@${botUsername}`)) {
+    console.log('📝 Команда update_schedule с упоминанием получена от:', ctx.chat.id);
+    
+    if (!(await isAdminUser(ctx))) {
+      console.log('❌ Пользователь не админ');
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+    
+    console.log('✅ Админ подтвержден, добавляем в ожидание');
+    awaitingScheduleUpload.add(ctx.chat.id);
+    return ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
+  }
+  
+  if (text.startsWith(`/cancel_schedule@${botUsername}`)) {
+    console.log('📝 Команда cancel_schedule с упоминанием получена от:', ctx.chat.id);
+    
+    if (!(await isAdminUser(ctx))) {
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+    
+    if (awaitingScheduleUpload.has(ctx.chat.id)) {
+      awaitingScheduleUpload.delete(ctx.chat.id);
+      ctx.reply('❌ Загрузка расписания отменена');
+    } else {
+      ctx.reply('ℹ️ Загрузка расписания не была активна');
+    }
+    return;
+  }
+  
+  // Существующая логика для пользовательских имен
   if (!awaitingCustomName.has(ctx.chat.id)) return;
   
   const customName = ctx.message.text;
@@ -296,17 +330,23 @@ bot.command('contacts', ctx => {
 
 // Исправленная команда update_schedule
 bot.command('update_schedule', async (ctx) => {
+  console.log('📝 Команда update_schedule получена от:', ctx.chat.id, 'ADMIN_CHAT_ID:', ADMIN_CHAT_ID);
+  
   // Исправляем проверку на админа - делаем её асинхронной
   if (!(await isAdminUser(ctx))) {
+    console.log('❌ Пользователь не админ');
     return ctx.reply('❌ У вас нет прав для выполнения этой команды');
   }
   
+  console.log('✅ Админ подтвержден, добавляем в ожидание');
   awaitingScheduleUpload.add(ctx.chat.id);
   ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
 });
 
 // Команда для отмены загрузки расписания
 bot.command('cancel_schedule', async (ctx) => {
+  console.log('📝 Команда cancel_schedule получена от:', ctx.chat.id);
+  
   if (!(await isAdminUser(ctx))) {
     return ctx.reply('❌ У вас нет прав для выполнения этой команды');
   }
@@ -317,6 +357,58 @@ bot.command('cancel_schedule', async (ctx) => {
   } else {
     ctx.reply('ℹ️ Загрузка расписания не была активна');
   }
+});
+
+// Добавляем обработчик для команд с упоминанием бота
+bot.on('text', async (ctx) => {
+  // Проверяем команды с упоминанием бота в группе
+  const text = ctx.message.text;
+  const botUsername = ctx.botInfo.username;
+  
+  if (text.startsWith(`/update_schedule@${botUsername}`)) {
+    console.log('📝 Команда update_schedule с упоминанием получена от:', ctx.chat.id);
+    
+    if (!(await isAdminUser(ctx))) {
+      console.log('❌ Пользователь не админ');
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+    
+    console.log('✅ Админ подтвержден, добавляем в ожидание');
+    awaitingScheduleUpload.add(ctx.chat.id);
+    return ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
+  }
+  
+  if (text.startsWith(`/cancel_schedule@${botUsername}`)) {
+    console.log('📝 Команда cancel_schedule с упоминанием получена от:', ctx.chat.id);
+    
+    if (!(await isAdminUser(ctx))) {
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+    
+    if (awaitingScheduleUpload.has(ctx.chat.id)) {
+      awaitingScheduleUpload.delete(ctx.chat.id);
+      ctx.reply('❌ Загрузка расписания отменена');
+    } else {
+      ctx.reply('ℹ️ Загрузка расписания не была активна');
+    }
+    return;
+  }
+  
+  // Существующая логика для пользовательских имен
+  if (!awaitingCustomName.has(ctx.chat.id)) return;
+  
+  const customName = ctx.message.text;
+  awaitingCustomName.delete(ctx.chat.id);
+  
+  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+  await ctx.reply(
+    `Приятно познакомиться, ${customName}! Выберите действие:`,
+    Markup.keyboard([
+      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+      ['Контакты']
+    ])
+    .resize()
+  );
 });
 
 // Исправленный обработчик документов
