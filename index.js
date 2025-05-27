@@ -308,11 +308,11 @@ bot.on('text', async (ctx) => {
   if (!awaitingCustomName.has(ctx.chat.id)) return;
   awaitingCustomName.delete(ctx.chat.id);
 
-  const customName = ctx.message.text;
+  const firstName = ctx.message.text;
 
   await ctx.replyWithPhoto({ source: NEXT_PHOTO });
   await ctx.reply(
-    `Приятно познакомиться, ${customName}! Выберите действие:`,
+    `Приятно познакомиться, ${firstName}! Выберите действие:`,
     Markup.keyboard([
       ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
       ['Контакты']
@@ -446,14 +446,14 @@ const app = express();
 
 
   async function sendBookingToAdmin(bookingData) {
-    const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
+    const { goal, direction, address, firstName, phone, slot, telegram_id } = bookingData;
     
     const msg = `Новая онлайн-заявка:
       Цель: ${goal}
       Направление: ${direction}
       Студия: ${address}
       Слот: ${slot || 'не указан'}
-      Имя: ${name}
+      Имя: ${firstName}
       Телефон: ${phone}
       ID: ${telegram_id}`;
       
@@ -461,10 +461,6 @@ const app = express();
   }
 
 app.use(bot.webhookCallback(WEBHOOK_PATH));
-
-app.get('/', (req, res) => {
-  res.send('Server is running...');
-});
 
 app.post(WEBHOOK_PATH, async (req, res) => {
   try {
