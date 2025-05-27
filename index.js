@@ -1,372 +1,415 @@
 import dotenv from 'dotenv';
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import fs from 'fs/promises';
-import { Telegraf, Markup, session } from 'telegraf';
-import XLSX from 'xlsx';
-import fetch from 'node-fetch';
+  import express from 'express';
+  import path from 'path';
+  import { fileURLToPath } from 'url';
+  import { dirname } from 'path';
+  import fs from 'fs/promises';
+  import { Telegraf, Markup } from 'telegraf';
+  import XLSX from 'xlsx';
+  import fetch from 'node-fetch';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
 
-const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
-const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
+  const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
+  const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
 
-dotenv.config();
+  dotenv.config();
 
-// Загружаем переменные окружения
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
-const WEBAPP_URL = process.env.WEBAPP_URL;
-const PORT = process.env.PORT || 3000;
-const WEBHOOK_PATH = '/tg-webhook';
+  // Load config from .env
+  const BOT_TOKEN = process.env.BOT_TOKEN;
+  const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+  const WEBAPP_URL = process.env.WEBAPP_URL;
+  const PORT = process.env.PORT || 3000;
+  const WEBHOOK_PATH = '/tg-webhook';
 
-if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
-  console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
-  process.exit(1);
-}
+  const awaitingScheduleUpload = new Set();
 
-// Проверка, является ли пользователь админом
-async function isAdminUser(ctx) {
-  return ctx.chat.id.toString() === ADMIN_CHAT_ID;
-}
-
-// Инициализация папки и файла для расписания
-const initDataDir = async () => {
-  const dataDir = path.join(__dirname, 'public', 'data');
-  try {
-    await fs.access(dataDir);
-  } catch {
-    await fs.mkdir(dataDir, { recursive: true });
+  if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
+    console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
+    process.exit(1);
   }
 
-  const schedulesPath = path.join(dataDir, 'schedules.json');
-  try {
-    await fs.access(schedulesPath);
-  } catch {
-    await fs.writeFile(schedulesPath, '{}');
+  // Функция проверки на админа
+  async function isAdminUser(ctx) {
+    // Проверяем, отправлено ли сообщение из админской группы
+    if (ctx.chat.id.toString() === ADMIN_CHAT_ID) {
+      return true;
+    }
+    return false;
   }
-};
 
-await initDataDir();
+  // Add after imports
+  const initDataDir = async () => {
+    const dataDir = path.join(__dirname, 'public', 'data');
+    try {
+      await fs.access(dataDir);
+    } catch {
+      await fs.mkdir(dataDir, { recursive: true });
+    }
+    
+    const schedulesPath = path.join(dataDir, 'schedules.json');
+    try {
+      await fs.access(schedulesPath);
+    } catch {
+      await fs.writeFile(schedulesPath, '{}');
+    }
+  };
 
-// Загружаем расписание из файла
-let schedules = {};
-try {
-  const dataPath = path.join(__dirname, 'public', 'data', 'schedules.json');
-  const data = await fs.readFile(dataPath, 'utf8');
-  schedules = JSON.parse(data);
-  console.log('✅ Loaded schedules from data/schedules.json');
-} catch (err) {
-  console.error('❌ Failed to load schedules.json:', err);
-}
+  await initDataDir();
 
-// Создаем экземпляр бота
-const bot = new Telegraf(BOT_TOKEN);
-const pendingReminders = new Map();
-const awaitingScheduleUpload = new Set();
-const awaitingCustomName = new Set();
-const pendingBookings = new Map();
+  // Load monthly-updatable schedule from JSON file
+  let schedules = {};
+  try {
+    const dataPath = path.join(__dirname, 'public', 'data', 'schedules.json');
+    const data = await fs.readFile(dataPath, 'utf8');
+    schedules = JSON.parse(data);
+    console.log('✅ Loaded schedules from data/schedules.json');
+  } catch (err) {
+    console.error('❌ Failed to load schedules.json:', err);
+  }
 
-bot.use(session());
+  // Initialize bot
+  const bot = new Telegraf(BOT_TOKEN);
+  const pendingReminders = new Map();
 
-// Настройка меню команд
-try {
-  // Команды для пользователей
+
+  bot.command('check_data', async (ctx) => {
+    if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
+    
+    // Split data into smaller chunks
+    const data = JSON.stringify(schedules, null, 2);
+    const chunkSize = 4000; // Leave some buffer
+    
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      await ctx.reply(chunk);
+    }
+  });
+  // Set up menu commands
+  try {
+  // Команды для обычных пользователей (только команду start)
   const publicCommands = [
     { command: 'start', description: 'Начать заново' },
     { command: 'contacts', description: 'Контакты студии' }
   ];
   await bot.telegram.setMyCommands(publicCommands);
 
-  // Команды для админа (только в его чате)
-  const adminCommands = [
+  // Команды для администраторов (только команду update_schedule)
+  const adminGroupCommands = [
     { command: 'update_schedule', description: 'Обновить расписание' }
   ];
-  await bot.telegram.setMyCommands(adminCommands, {
-    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
+  await bot.telegram.setMyCommands(adminGroupCommands, {
+    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }  // Ограничение команд только для админа
   });
+
 } catch (err) {
-  console.error('Ошибка при установке команд:', err);
+  console.log('Command menu setup:', err);
 }
 
-// Функция обновления расписания из Excel (с сохранением в JSON)
-async function updateScheduleFromExcel(filePath) {
-  const workbook = XLSX.readFile(filePath);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json(sheet);
 
-  const newSchedules = {};
-
-  data.forEach(row => {
-    let dateValue = row.date;
-    if (typeof dateValue === 'number') {
-      dateValue = new Date((dateValue - 25569) * 86400 * 1000);
-    } else {
-      dateValue = new Date(dateValue);
-    }
-    const formattedDate = dateValue.toISOString().split('T')[0];
-
-    if (!newSchedules[row.address]) {
-      newSchedules[row.address] = [];
-    }
-
-    newSchedules[row.address].push({
-      date: formattedDate,
-      time: row.time,
-      direction: row.direction.trim(),
-      address: row.address.trim()
-    });
-  });
-
-  // Сохраняем
-  const filePathSave = path.join(__dirname, 'public', 'data', 'schedules.json');
-  await fs.writeFile(filePathSave, JSON.stringify(newSchedules, null, 2));
-  schedules = newSchedules;
-
-  console.log('Расписание обновлено из Excel');
-  return newSchedules;
-}
-
-// Команда /check_data для админа — показать текущее расписание
-bot.command('check_data', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
-
-  const dataStr = JSON.stringify(schedules, null, 2);
-  const chunkSize = 4000;
-  for (let i = 0; i < dataStr.length; i += chunkSize) {
-    await ctx.reply(dataStr.slice(i, i + chunkSize));
-  }
-});
-
-// Команда /update_schedule для админа — ожидание загрузки файла
-bot.command('update_schedule', (ctx) => {
-  if (!isAdminUser(ctx)) return;
-  awaitingScheduleUpload.add(ctx.chat.id);
-  ctx.reply('Отправьте файл Excel с расписанием');
-});
-
-// Обработка загруженного файла Excel с расписанием (только для админа)
-bot.on('document', async (ctx) => {
-  try {
-    if (!awaitingScheduleUpload.has(ctx.chat.id)) {
-      return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
-    }
-    awaitingScheduleUpload.delete(ctx.chat.id);
-
-    const fileId = ctx.message.document.file_id;
-    const fileLink = await ctx.telegram.getFileLink(fileId);
-    const response = await fetch(fileLink.href);
-    const buffer = await response.buffer();
-
-    // Обрабатываем Excel
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+  // Update schedule function
+  async function updateScheduleFromExcel(filePath) {
+    const workbook = XLSX.readFile(filePath);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    // Конвертируем в нужный формат (если нужно — подстроить под свой формат)
-    const schedule = {};
+    const schedules = {};
+
     data.forEach(row => {
-      const day = row.Day || row.date || row.Date; // подстроить под реальный столбец
-      const time = row.Time || row.time || '';
-      const name = row.Name || row.name || '';
-      if (!schedule[day]) schedule[day] = [];
-      schedule[day].push({ time, name });
+      // Convert Excel date to YYYY-MM-DD format
+      let dateValue = row.date;
+      if (typeof dateValue === 'number') {
+        // If Excel date is stored as number
+        dateValue = new Date((dateValue - 25569) * 86400 * 1000);
+      } else {
+        // If date is string, parse it
+        dateValue = new Date(dateValue);
+      }
+      const formattedDate = dateValue.toISOString().split('T')[0];
+
+      if (!schedules[row.address]) {
+        schedules[row.address] = [];
+      }
+
+      const orderedEntry = {
+        date: formattedDate,
+        time: row.time,
+        direction: row.direction.trim(), // Add trim() to normalize strings
+        address: row.address.trim()
+      };
+
+      schedules[row.address].push(orderedEntry);
     });
 
-    // Записываем в файл
-    const filePath = path.join(__dirname, 'public', 'data', 'schedules.json');
-    await fs.writeFile(filePath, JSON.stringify(schedule, null, 2));
-    schedules = schedule;
+    // Add console.log to verify data structure
+    console.log('Generated schedules:', schedules);
 
-    ctx.reply('Расписание успешно обновлено');
-  } catch (error) {
-    console.error(error);
-    ctx.reply('Ошибка при обработке файла расписания');
-  }
-});
+    await fs.writeFile(
+      path.join(__dirname, 'public', 'data', 'schedules.json'),
+      JSON.stringify(schedules, null, 2)
+    );
 
-// Обработка команды /start
-bot.start(async (ctx) => {
-  const firstName = ctx.from.first_name || 'клиент';
-  const chatId = ctx.chat.id;
-
-  // Очищаем старые таймеры напоминаний, если есть
-  if (pendingReminders.has(chatId)) {
-    const { t3, t15, t24 } = pendingReminders.get(chatId);
-    clearTimeout(t3);
-    clearTimeout(t15);
-    clearTimeout(t24);
+    return schedules;
   }
 
-  // Таймеры напоминаний
-  const t3 = setTimeout(() => {
-    bot.telegram.sendMessage(
-      chatId,
-      `👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!`,
-      Markup.inlineKeyboard([
-        Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
-      ])
-    );
-  }, 3 * 60 * 60 * 1000);
-
-  const t15 = setTimeout(() => {
-    bot.telegram.sendMessage(
-      chatId,
-      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
-      Markup.inlineKeyboard([
-        Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
-      ])
-    );
-  }, 15 * 60 * 1000);
-
-  const t24 = setTimeout(() => {
-    bot.telegram.sendMessage(
-      chatId,
-      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
-      Markup.inlineKeyboard([
-        Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
-      ])
-    );
-  }, 24 * 60 * 60 * 1000);
-
-  pendingReminders.set(chatId, { t3, t15, t24 });
-
-  await ctx.replyWithPhoto({ source: WELCOME_PHOTO });
-
-  await ctx.reply(
-    `Приветствую, наш будущий клиент!\n` +
-    `Я Лея — умный помощник студии балета и растяжки LEVITA!\n\n` +
-    `Могу обращаться к вам по имени "${firstName}", которое указано у вас в профиле?`,
-    Markup.keyboard([['Да', 'Нет, ввести другое имя']])
-      .resize()
-      .oneTime()
-  );
-});
-
-// Обработка ответа "Да" на имя
-bot.hears('Да', async (ctx) => {
-  ctx.session.name = ctx.from.first_name;
-  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  return ctx.reply(
-    'Отлично! Выберите действие:',
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ]).resize()
-  );
-});
-// Обработка нажатия "🖥️ Запись онлайн"
-bot.hears('🖥️ Запись онлайн', (ctx) => {
-  ctx.reply(
-    'Заполните онлайн-форму:',
+  bot.start(async ctx => {
+    const firstName = ctx.from.first_name || 'клиент';
+    const chatId = ctx.chat.id;
+    // Send welcome photo first
+    if (pendingReminders.has(chatId)) {
+        const {t3, t15, t24 } = pendingReminders.get(chatId);
+        clearTimeout(t3);
+        clearTimeout(t15);
+        clearTimeout(t24);
+      }
+    
+      const t15 = setTimeout(() => {
+      bot.telegram.sendMessage(
+        chatId,
+        ${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈,
     Markup.inlineKeyboard([
-      Markup.button.webApp('Перейти к форме', WEBAPP_URL)
+      Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
     ])
-  );
-});
+      );
+    },15 * 60 * 1000);
 
-// Обработка "📞 Запись по звонку администратора"
-bot.hears('📞 Запись по звонку администратора', (ctx) => {
-  return ctx.reply(
-    'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
-    Markup.keyboard([
-      ['⬅️ Назад', { text: '📲 Отправить контакт', request_contact: true }]
-    ]).resize()
-  );
-});
+    const t3 = setTimeout(() => {
+      bot.telegram.sendMessage(
+        chatId,
+        👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!,
+        Markup.inlineKeyboard([
+      Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
+    ])
+      );
+    }, 3 * 60 * 60 * 1000);
 
-// Обработка кнопки "⬅️ Назад"
-bot.hears('⬅️ Назад', (ctx) => {
-  return ctx.reply(
-    'Выберите действие:',
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ]).resize()
-  );
-});
+    const t24 = setTimeout(() => {
+        bot.telegram.sendMessage(
+          chatId, 
+          ${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈,
+          Markup.inlineKeyboard([
+      Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
+    ])
+        );
+      }, 24 * 60 * 60 * 1000);
 
-// Отправка контактов студии
-bot.hears('Контакты', (ctx) => {
-  ctx.reply(
-    `Связь с ресепшн студии:
+    pendingReminders.set(chatId, {t3, t15, t24 });
+
+    await ctx.replyWithPhoto({ source: WELCOME_PHOTO });
+    
+    
+    await ctx.reply(
+      Приветствую, наш будущий клиент!\n +
+      Я Лея — умный помощник студии балета и растяжки LEVITA!\n\n +
+      Могу обращаться к вам по имени "${firstName}", которое указано у вас в профиле?,
+      Markup.keyboard([['Да', 'Нет, ввести другое имя']])
+        .resize()
+        .oneTime()
+    );
+  });
+
+  bot.hears('Да', async ctx => {
+    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+    
+    return ctx.reply(
+      'Отлично! Выберите действие:',
+      Markup.keyboard([
+        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+        ['Контакты']
+      ])
+      .resize()
+    );
+  });
+
+  const awaitingCustomName = new Set();
+
+  bot.hears('🖥️ Запись онлайн', ctx => {
+    ctx.reply(
+      'Заполните онлайн-форму:',
+      Markup.inlineKeyboard([
+        Markup.button.webApp('Перейти к форме', WEBAPP_URL)
+      ])
+    );
+  });
+
+  bot.hears('📞 Запись по звонку администратора', ctx => {
+    return ctx.reply(
+      'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
+      Markup.keyboard([
+        ['⬅️ Назад', {text: '📲 Отправить контакт', request_contact: true}]
+      ])
+      .resize()
+    );
+  });
+
+  bot.hears('⬅️ Назад', ctx => {
+    return ctx.reply(
+      'Выберите действие:',
+      Markup.keyboard([
+        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+        ['Контакты']
+      ])
+      .resize()
+    );
+  });
+
+  bot.hears('Контакты', ctx => {
+    ctx.reply(
+      Связь с ресепшн студии:
+      Свободы 6 — 8-928-00-00-000
+      Видова 210Д — 8-928-00-00-000
+      Дзержинского 211/2 — 8-928-00-00-000
+    );
+  });
+
+  bot.hears('Нет, ввести другое имя', async ctx => {
+    awaitingCustomName.add(ctx.chat.id);
+    await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
+  });
+
+  bot.on('text', async ctx => {
+    if (!awaitingCustomName.has(ctx.chat.id)) return;
+    
+    const customName = ctx.message.text;
+    awaitingCustomName.delete(ctx.chat.id);
+    
+    await ctx.replyWithPhoto({ source: NEXT_PHOTO });
+    await ctx.reply(
+      Приятно познакомиться, ${customName}! Выберите действие:,
+      Markup.keyboard([
+        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+        ['Контакты']
+      ])
+      .resize()
+    );
+  });
+
+
+  bot.command('contacts', ctx => {
+    ctx.reply(
+      Связь с ресепшн студии:
     Свободы 6 — 8-928-00-00-000
     Видова 210Д — 8-928-00-00-000
-    Дзержинского 211/2 — 8-928-00-00-000`
-  );
+    Дзержинского 211/2 — 8-928-00-00-000
+    );
+  });
+
+  bot.command(['update_schedule', 'update_schedule@Levita_nvrs_bot'], async (ctx) => {
+    if (!await isAdminUser(ctx)) return;
+
+    console.log('🎯 Command received:', ctx.message.text);
+    awaitingScheduleUpload.add(ctx.chat.id); // ждём файл
+
+    try {
+      await ctx.reply('Отправьте Excel файл с расписанием', { disable_notification: false });
+    } catch (error) {
+      console.log('📝 Error details:', {
+        chatId: ctx.chat.id,
+        error: error.message
+      });
+    }
+  });
+
+
+  bot.on('document', async (ctx) => {
+  const chatId = ctx.chat.id;
+
+  if (!await isAdminUser(ctx)) return;
+
+  if (!awaitingScheduleUpload.has(chatId)) {
+    return ctx.reply('Пожалуйста, сначала выполните команду /update_schedule');
+  }
+
+  // Очистим флаг ожидания
+  awaitingScheduleUpload.delete(chatId);
+
+  try {
+    const file = await ctx.telegram.getFile(ctx.message.document.file_id);
+    const filePath = path.join(__dirname, 'temp.xlsx');
+    
+    const fileUrl = https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path};
+    const response = await fetch(fileUrl);
+    const buffer = await response.buffer();
+    await fs.writeFile(filePath, buffer);
+    
+    schedules = await updateScheduleFromExcel(filePath);
+    await fs.unlink(filePath);
+    
+    ctx.reply('✅ Расписание успешно обновлено!');
+  } catch (error) {
+    ctx.reply('❌ Ошибка при обновлении расписания: ' + error.message);
+  }
 });
 
-// Если пользователь хочет ввести другое имя
-bot.hears('Нет, ввести другое имя', async (ctx) => {
-  awaitingCustomName.add(ctx.chat.id);
-  await ctx.reply('Пожалуйста, введите, как к вам обращаться:');
-});
 
-// Обработка введенного имени
-bot.on('text', async (ctx) => {
-  if (!awaitingCustomName.has(ctx.chat.id)) return;
-  awaitingCustomName.delete(ctx.chat.id);
+  bot.hears('Контакты', ctx => {
+    ctx.reply(
+      Связь с ресепшн студии:
+      Свободы 6 — 8-928-00-00-000
+      Видова 210Д — 8-928-00-00-000
+      Дзержинского 211/2 — 8-928-00-00-000
+    );
+  });
 
-  const customName = ctx.message.text;
-  ctx.session.name = customName
+  bot.on('contact', async ctx => {
+    const chatId = ctx.chat.id;
+    
+    // Clear reminders if exist
+    if (pendingReminders.has(chatId)) {
+      const {t3, t15, t24 } = pendingReminders.get(chatId);
+      clearTimeout(t3);
+      clearTimeout(t15);
+      clearTimeout(t24);
+      pendingReminders.delete(chatId);
+    }
 
-  await ctx.replyWithPhoto({ source: NEXT_PHOTO });
-  await ctx.reply(
-    `Приятно познакомиться, ${customName}! Выберите действие:`,
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ]).resize()
-  );
-});
+    const { first_name, phone_number } = ctx.message.contact;
+    const telegram_id = ctx.from.id;
+    
+    // Get stored booking data
+    const bookingData = pendingBookings.get(telegram_id);
+    
+    if (bookingData) {
+      // This is a form submission - send complete booking data
+      const msg = Новая подтвержденная заявка:
+        Цель: ${bookingData.goal}
+        Направление: ${bookingData.direction}
+        Студия: ${bookingData.address}
+        Слот: ${bookingData.slot || 'не указан'}
+        Имя: ${first_name}
+        Телефон: ${phone_number}
+        ID: ${telegram_id};
+        
+      await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
+      pendingBookings.delete(telegram_id);
+    } else {
+      // This is a callback request
+      const msg = Новая заявка на обратный звонок:
+        Имя: ${first_name}
+        Телефон: ${phone_number}
+        ID: ${telegram_id};
+        
+      await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
+    }
+    
+    await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
+  });
 
-// Обработка нажатия "🖥️ Запись онлайн"
-bot.hears('🖥️ Запись онлайн', (ctx) => {
-  ctx.reply(
-    'Заполните онлайн-форму:',
-    Markup.inlineKeyboard([
-      Markup.button.webApp('Перейти к форме', WEBAPP_URL)
-    ])
-  );
-});
+  // Add temporary storage for bookings
+  const pendingBookings = new Map();
 
-// Обработка "📞 Запись по звонку администратора"
-bot.hears('📞 Запись по звонку администратора', (ctx) => {
-  return ctx.reply(
-    'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
-    Markup.keyboard([
-      ['⬅️ Назад', { text: '📲 Отправить контакт', request_contact: true }]
-    ]).resize()
-  );
-});
+  bot.hears('🖥️ Запись онлайн', ctx => {
+    ctx.reply(
+      'Заполните онлайн-форму:',
+      Markup.inlineKeyboard([
+        Markup.button.webApp('Перейти к форме', WEBAPP_URL)
+      ])
+    );
+  });
 
-// Обработка кнопки "⬅️ Назад"
-bot.hears('⬅️ Назад', (ctx) => {
-  return ctx.reply(
-    'Выберите действие:',
-    Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
-      ['Контакты']
-    ]).resize()
-  );
-});
-
-// Отправка контактов студии
-bot.hears('Контакты', (ctx) => {
-  ctx.reply(
-    `Связь с ресепшн студии:
-Свободы 6 — 8-928-00-00-000
-Вокзальная 7 — 8-928-00-00-001
-Мира 31 — 8-928-00-00-002`
-  );
-});
-
-// Запуск веб-сервера и вебхука
-const app = express();
+  // Express App
+  const app = express();
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
 
@@ -426,68 +469,54 @@ const app = express();
     }
   });
 
-  bot.on('contact', async (ctx) => {
-  const contact = ctx.message.contact;
-  const telegramId = ctx.from.id;
-
-  const bookingData = pendingBookings.get(telegramId);
-  if (!bookingData) {
-    return ctx.reply('Не удалось найти вашу заявку. Пожалуйста, заполните форму снова.');
-  }
-
-  // Сохраняем номер телефона из контакта
-  bookingData.phone = contact.phone_number;
-  bookingData.name = ctx.session.name 
-
-  try {
-    await sendBookingToAdmin(bookingData);
-    await ctx.reply('✅ Спасибо! Ваша заявка принята, с вами скоро свяжется администратор.');
-    pendingBookings.delete(telegramId);
-  } catch (err) {
-    console.error('Ошибка при отправке администратору:', err);
-    await ctx.reply('Произошла ошибка при отправке данных. Пожалуйста, попробуйте позже.');
-  }
-});
-
   async function sendBookingToAdmin(bookingData) {
     const { goal, direction, address, name, phone, slot, telegram_id } = bookingData;
     
-    const msg = `Новая онлайн-заявка:
+    const msg = Новая онлайн-заявка:
       Цель: ${goal}
       Направление: ${direction}
       Студия: ${address}
       Слот: ${slot || 'не указан'}
       Имя: ${name}
       Телефон: ${phone}
-      ID: ${telegram_id}`;
+      ID: ${telegram_id};
       
     return await bot.telegram.sendMessage(ADMIN_CHAT_ID, msg);
   }
 
-app.use(bot.webhookCallback(WEBHOOK_PATH));
+  // Telegram webhook callback
+  app.use(bot.webhookCallback(WEBHOOK_PATH));
 
-app.get('/', (req, res) => {
-  res.send('Server is running...');
-});
+  // At app startup
+  console.log('🚀 Bot starting up...');
+  console.log('Environment:', {
+    PORT,
+    WEBHOOK_PATH,
+    WEBAPP_URL
+  });
 
-app.post(WEBHOOK_PATH, async (req, res) => {
-  try {
-    await bot.handleUpdate(req.body);
-    res.status(200).send('ok');
-  } catch (error) {
-    console.error('Ошибка при обработке обновления:', error);
-    res.status(500).send('Error');
-  }
-});
+  // For webhook setup
+  app.listen(PORT, async () => {
+    console.log(🌐 Server starting on port ${PORT});
+    try {
+      await bot.telegram.deleteWebhook();
+      console.log('🔄 Old webhook deleted');
+      await bot.telegram.setWebhook(${WEBAPP_URL}${WEBHOOK_PATH});
+      console.log('✅ New webhook set successfully');
+    } catch (e) {
+      console.log('❌ Webhook error:', e);
+    }
+  });
 
-app.listen(PORT, async () => {
-  console.log(`Server listening on port ${PORT}`);
+  // Graceful shutdown
+  process.once('SIGINT', () => {
+    if (bot.isRunning) {
+      bot.stop('SIGINT')
+    }
+  });
 
-  const webhookUrl = `${WEBAPP_URL}${WEBHOOK_PATH}`;
-  try {
-    await bot.telegram.setWebhook(webhookUrl);
-    console.log(`Webhook установлен по адресу ${webhookUrl}`);
-  } catch (err) {
-    console.error('Ошибка установки webhook:', err);
-  }
-});
+  process.once('SIGTERM', () => {
+    if (bot.isRunning) {
+      bot.stop('SIGTERM')
+    }
+  })
