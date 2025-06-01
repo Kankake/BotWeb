@@ -314,7 +314,7 @@
         <button class="more" id="weekBtn">Больше</button>
       </div>
     </div>
-    <div id="step-6" class="card step">
+        <div id="step-6" class="card step">
       <h1>Важно:</h1>
       <div style="margin-bottom: 16px;">
       <span class="zv" >Хотим Вас уведомить, что по политике нашей компании Вы можете посетить бесплатное пробное занятие только один раз.
@@ -405,7 +405,13 @@
       });
     });
     document.getElementById('back4').addEventListener('click', () => show('step-3'));
-    document.getElementById('next4').addEventListener('click', () => fetchAndShowSlots());
+    document.getElementById('next4').addEventListener('click', () => {
+      if (!data.address) {
+        alert('Пожалуйста, выберите студию');
+        return;
+      }
+      fetchAndShowSlots();
+    });
     // Step5
     document.getElementById('back5').addEventListener('click', () => show('step-4'));
     document.getElementById('next5').addEventListener('click', () => {
@@ -536,23 +542,32 @@ weekBtn.addEventListener('click', () => {
 });
 
 async function fetchAndShowSlots(days = 3) {
+  if (!data.direction || !data.address) {
+    alert('Пожалуйста, выберите направление и студию');
+    return;
+  }
+
   try {
-    const response = await fetch('data/schedules.json');
+    const response = await fetch('/slots', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        direction: data.direction,
+        address: data.address
+      })
+    });
+
     if (!response.ok) throw new Error('Ошибка сети');
 
-    const schedulesObj = await response.json();
-    const allSlots = schedulesObj[data.address] || [];
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time part to start of day
+    const result = await response.json();
     
-    const showDays = [];
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      showDays.push(d.toISOString().split('T')[0]); // Get YYYY-MM-DD format
+    if (!result.ok) {
+      throw new Error('Ошибка получения слотов');
     }
 
+    const slots = result.slots || [];
     const cont = document.getElementById('options-slots');
     cont.innerHTML = '';
     cont.style.maxHeight = '300px';
@@ -560,34 +575,49 @@ async function fetchAndShowSlots(days = 3) {
 
     let hasSlots = false;
 
-    showDays.forEach(day => {
-      const dateStr = new Date(day).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-      const daySlots = allSlots.filter(slot => 
-        slot.direction.trim() === data.direction.trim() && 
-        slot.date === day
-      );
+    // Группируем слоты по дням
+    const slotsByDate = {};
+    slots.forEach(slot => {
+      if (!slotsByDate[slot.date]) {
+        slotsByDate[slot.date] = [];
+      }
+      slotsByDate[slot.date].push(slot);
+    });
 
-      daySlots.forEach(s => {
+    // Показываем слоты по дням
+    Object.keys(slotsByDate).sort().forEach(date => {
+      const dateStr = new Date(date).toLocaleDateString('ru-RU', { 
+        day: 'numeric', 
+        month: 'long',
+        weekday: 'short'
+      });
+      
+      slotsByDate[date].forEach(slot => {
         hasSlots = true;
         const b = document.createElement('div');
         b.className = 'option';
-        b.textContent = `${dateStr} — ${s.time}`;
+        b.textContent = `${dateStr} — ${slot.time}`;
         b.onclick = () => {
           document.querySelectorAll('#options-slots .option').forEach(o => 
             o.classList.remove('selected')
           );
           b.classList.add('selected');
-          data.slot = `${day}, ${s.time}`;
+          data.slot = `${date}, ${slot.time}`;
         };
         cont.appendChild(b);
       });
     });
 
     if (!hasSlots) {
-      alert(`Нет доступных слотов на ближайшие ${days} дней`);
-    } else {
-      show('step-5');
+      const noSlots = document.createElement('div');
+      noSlots.style.padding = '20px';
+      noSlots.style.textAlign = 'center';
+      noSlots.style.color = 'var(--text-muted)';
+      noSlots.textContent = `Нет доступных слотов на ближайшие ${days} дней`;
+      cont.appendChild(noSlots);
     }
+
+    show('step-5');
   } catch (error) {
     console.error('Ошибка загрузки расписания:', error);
     alert('Не удалось загрузить расписание');
@@ -597,3 +627,5 @@ async function fetchAndShowSlots(days = 3) {
   </script>
 </body>
 </html>
+
+
