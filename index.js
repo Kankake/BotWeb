@@ -760,27 +760,47 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Endpoints
 app.post('/slots', (req, res) => {
   const { direction, address } = req.body;
-  const now = new Date(); // Текущая дата и время
+  const now = new Date();
   const threeDaysFromNow = new Date();
-  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3); // Дата через 3 дня
+  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
 
   console.log('REQUEST direction:', direction, '| address:', address);
+  console.log('Current time:', now.toISOString());
+  console.log('Three days from now:', threeDaysFromNow.toISOString());
+  
   const arr = schedules[address] || [];
   console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
+  console.log('Total slots for address:', arr.length);
 
   const slots = arr
     .filter(slot => {
-      const slotDateTime = new Date(`${slot.date}T${slot.time}`); // Объединяем дату и время
+      const slotDateTime = new Date(`${slot.date}T${slot.time}`);
       const match = slot.direction.trim() === direction.trim();
-      if (match && slotDateTime >= now && slotDateTime <= threeDaysFromNow) { // Проверяем, что слот в будущем и в пределах 3 дней
-        console.log('MATCH:', slot.direction, '|', direction, '|', slot.date, slot.time);
+      
+      // Добавляем отладочную информацию
+      console.log('Checking slot:', {
+        date: slot.date,
+        time: slot.time,
+        direction: slot.direction,
+        slotDateTime: slotDateTime.toISOString(),
+        isValidDate: !isNaN(slotDateTime.getTime()),
+        isAfterNow: slotDateTime >= now,
+        isWithinThreeDays: slotDateTime <= threeDaysFromNow,
+        directionMatch: match
+      });
+      
+      if (match && slotDateTime >= now && slotDateTime <= threeDaysFromNow) {
+        console.log('MATCH FOUND:', slot.direction, '|', direction, '|', slot.date, slot.time);
       }
-      return match && slotDateTime >= now && slotDateTime <= threeDaysFromNow; // Возвращаем только будущие слоты в пределах 3 дней
+      
+      return match && !isNaN(slotDateTime.getTime()) && slotDateTime >= now && slotDateTime <= threeDaysFromNow;
     })
     .map(slot => ({ date: slot.date, time: slot.time }));
 
+  console.log('Filtered slots count:', slots.length);
   res.json({ ok: true, slots });
 });
+
 
 
 // Добавляем новый endpoint для получения имени пользователя
@@ -878,3 +898,21 @@ process.once('SIGTERM', () => {
     bot.stop('SIGTERM')
   }
 })
+
+app.get('/debug-schedules/:address', (req, res) => {
+  const address = req.params.address;
+  const arr = schedules[address] || [];
+  
+  const debugInfo = arr.map(slot => ({
+    ...slot,
+    parsedDateTime: new Date(`${slot.date}T${slot.time}`).toISOString(),
+    isValidDate: !isNaN(new Date(`${slot.date}T${slot.time}`).getTime())
+  }));
+  
+  res.json({
+    address,
+    totalSlots: arr.length,
+    currentTime: new Date().toISOString(),
+    slots: debugInfo
+  });
+});
