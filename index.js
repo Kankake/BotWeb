@@ -246,6 +246,20 @@ try {
   console.log('Command menu setup:', err);
 }
 
+// Function to send a message to a user and handle blocked users
+async function sendMessageToUser(userId, message) {
+  try {
+    await bot.telegram.sendMessage(userId, message);
+  } catch (error) {
+    if (error.code === 403) {
+      console.error(`User ${userId} has blocked the bot. Removing from database.`);
+      await removeUser(userId); // Remove the user from the database
+    } else {
+      console.error(`Failed to send message to user ${userId}:`, error.message);
+    }
+  }
+}
+
 // Update schedule function
 async function updateScheduleFromExcel(filePath) {
   const workbook = XLSX.readFile(filePath);
@@ -514,7 +528,7 @@ bot.on('text', async (ctx) => {
     
      for (const userId of allUsers) {
        try {
-         await bot.telegram.sendMessage(userId, broadcastMessage);
+         await sendMessageToUser(userId, broadcastMessage);
          successCount++;
          await new Promise(resolve => setTimeout(resolve, 50));
        } catch (error) {
@@ -746,21 +760,22 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Endpoints
 app.post('/slots', (req, res) => {
   const { direction, address } = req.body;
-  const today = new Date();
+  const now = new Date(); // Get the current date and time
   console.log('REQUEST direction:', direction, '| address:', address);
   const arr = schedules[address] || [];
   console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
+
   const slots = arr
     .filter(slot => {
-      const d = new Date(slot.date);
-      const diff = (d - today) / (1000 * 60 * 60 * 24);
+      const slotDateTime = new Date(`${slot.date}T${slot.time}`); // Combine date and time
       const match = slot.direction.trim() === direction.trim();
-      if (match && diff >= 0 && diff < 3) {
+      if (match && slotDateTime >= now) { // Check if the slot is in the future
         console.log('MATCH:', slot.direction, '|', direction, '|', slot.date, slot.time);
       }
-      return match && diff >= 0 && diff < 3;
+      return match && slotDateTime >= now; // Only return future slots
     })
     .map(slot => ({ date: slot.date, time: slot.time }));
+
   res.json({ ok: true, slots });
 });
 
