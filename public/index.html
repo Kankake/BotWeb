@@ -534,12 +534,50 @@ function populateDirs(showAll = false) {
   });
 }
 
-const weekBtn = document.getElementById('weekBtn');
+document.getElementById('weekBtn').addEventListener('click', async function() {
+  // Проверяем, что выбраны направление и адрес
+  if (!selectedDirection || !selectedAddress) {
+    alert('Сначала выберите направление и студию');
+    return;
+  }
 
-// Добавляем обработчик клика, чтобы показать расписание на неделю
-weekBtn.addEventListener('click', () => {
-  fetchAndShowSlots(7); // теперь показываем 7 дней
+  // Показываем индикатор загрузки (опционально)
+  this.textContent = 'Загрузка...';
+  this.disabled = true;
+
+  try {
+    // Запрашиваем слоты на 7 дней
+    const response = await fetch('/slots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        direction: selectedDirection,
+        address: selectedAddress,
+        days: 7
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.ok) {
+      // Обновляем отображение слотов
+      displaySlots(data.slots);
+      
+      // Скрываем кнопку "Больше" после загрузки расширенного списка
+      this.style.display = 'none';
+    } else {
+      alert('Ошибка при загрузке расписания');
+    }
+  } catch (error) {
+    console.error('Ошибка:', error);
+    alert('Ошибка при загрузке расписания');
+  } finally {
+    // Возвращаем кнопку в исходное состояние
+    this.textContent = 'Больше';
+    this.disabled = false;
+  }
 });
+
 
 async function fetchAndShowSlots(days = 3) {
   if (!data.direction || !data.address) {
@@ -555,14 +593,14 @@ async function fetchAndShowSlots(days = 3) {
       },
       body: JSON.stringify({
         direction: data.direction,
-        address: data.address
+        address: data.address,
+        days: days // Добавляем параметр days
       })
     });
 
     if (!response.ok) throw new Error('Ошибка сети');
-
     const result = await response.json();
-    
+       
     if (!result.ok) {
       throw new Error('Ошибка получения слотов');
     }
@@ -572,7 +610,6 @@ async function fetchAndShowSlots(days = 3) {
     cont.innerHTML = '';
     cont.style.maxHeight = '300px';
     cont.style.overflowY = 'auto';
-
     let hasSlots = false;
 
     // Группируем слоты по дням
@@ -586,19 +623,19 @@ async function fetchAndShowSlots(days = 3) {
 
     // Показываем слоты по дням
     Object.keys(slotsByDate).sort().forEach(date => {
-      const dateStr = new Date(date).toLocaleDateString('ru-RU', { 
-        day: 'numeric', 
+      const dateStr = new Date(date).toLocaleDateString('ru-RU', {
+        day: 'numeric',
         month: 'long',
         weekday: 'short'
       });
-      
+         
       slotsByDate[date].forEach(slot => {
         hasSlots = true;
         const b = document.createElement('div');
         b.className = 'option';
         b.textContent = `${dateStr} — ${slot.time}`;
         b.onclick = () => {
-          document.querySelectorAll('#options-slots .option').forEach(o => 
+          document.querySelectorAll('#options-slots .option').forEach(o =>
             o.classList.remove('selected')
           );
           b.classList.add('selected');
@@ -615,6 +652,17 @@ async function fetchAndShowSlots(days = 3) {
       noSlots.style.color = 'var(--text-muted)';
       noSlots.textContent = `Нет доступных слотов на ближайшие ${days} дней`;
       cont.appendChild(noSlots);
+    } else if (days === 3) {
+      // Показываем кнопку "Больше" только при первоначальной загрузке (3 дня)
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'more';
+      moreBtn.id = 'weekBtn';
+      moreBtn.textContent = 'Больше';
+      moreBtn.onclick = () => {
+        moreBtn.remove(); // Удаляем кнопку
+        fetchAndShowSlots(7); // Загружаем на 7 дней
+      };
+      cont.appendChild(moreBtn);
     }
 
     show('step-5');
