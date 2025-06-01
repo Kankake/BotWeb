@@ -760,24 +760,28 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Endpoints
 app.post('/slots', (req, res) => {
   const { direction, address } = req.body;
-  const now = new Date(); // Get the current date and time
+  const now = new Date(); // Текущая дата и время
+  const threeDaysFromNow = new Date();
+  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3); // Дата через 3 дня
+
   console.log('REQUEST direction:', direction, '| address:', address);
   const arr = schedules[address] || [];
   console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
 
   const slots = arr
     .filter(slot => {
-      const slotDateTime = new Date(`${slot.date}T${slot.time}`); // Combine date and time
+      const slotDateTime = new Date(`${slot.date}T${slot.time}`); // Объединяем дату и время
       const match = slot.direction.trim() === direction.trim();
-      if (match && slotDateTime >= now) { // Check if the slot is in the future
+      if (match && slotDateTime >= now && slotDateTime <= threeDaysFromNow) { // Проверяем, что слот в будущем и в пределах 3 дней
         console.log('MATCH:', slot.direction, '|', direction, '|', slot.date, slot.time);
       }
-      return match && slotDateTime >= now; // Only return future slots
+      return match && slotDateTime >= now && slotDateTime <= threeDaysFromNow; // Возвращаем только будущие слоты в пределах 3 дней
     })
     .map(slot => ({ date: slot.date, time: slot.time }));
 
   res.json({ ok: true, slots });
 });
+
 
 // Добавляем новый endpoint для получения имени пользователя
 app.get('/user-name/:telegram_id', async (req, res) => {
