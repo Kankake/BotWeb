@@ -536,38 +536,21 @@ function populateDirs(showAll = false) {
 
 document.getElementById('weekBtn').addEventListener('click', async function() {
   // Проверяем, что выбраны направление и адрес
-  if (!selectedDirection || !selectedAddress) {
+  if (!data.direction || !data.address) {
     alert('Сначала выберите направление и студию');
     return;
   }
 
-  // Показываем индикатор загрузки (опционально)
+  // Показываем индикатор загрузки
   this.textContent = 'Загрузка...';
   this.disabled = true;
 
   try {
     // Запрашиваем слоты на 7 дней
-    const response = await fetch('/slots', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        direction: selectedDirection,
-        address: selectedAddress,
-        days: 7
-      })
-    });
-
-    const data = await response.json();
+    fetchAndShowSlots(7);
     
-    if (data.ok) {
-      // Обновляем отображение слотов
-      displaySlots(data.slots);
-      
-      // Скрываем кнопку "Больше" после загрузки расширенного списка
-      this.style.display = 'none';
-    } else {
-      alert('Ошибка при загрузке расписания');
-    }
+    // Скрываем кнопку "Больше" после загрузки расширенного списка
+    this.style.display = 'none';
   } catch (error) {
     console.error('Ошибка:', error);
     alert('Ошибка при загрузке расписания');
@@ -657,19 +640,6 @@ async function fetchAndShowSlots(days = 3) {
       noSlots.style.color = 'var(--text-muted)';
       noSlots.textContent = `Нет доступных слотов на ближайшие ${days} дней`;
       cont.appendChild(noSlots);
-    } else if (days === 3) {
-      // Показываем кнопку "Больше" только при загрузке на 3 дня
-      // И только если её еще нет
-      if (!document.getElementById('weekBtn')) {
-        const moreBtn = document.createElement('button');
-        moreBtn.className = 'more';
-        moreBtn.id = 'weekBtn';
-        moreBtn.textContent = 'Больше';
-        moreBtn.onclick = () => {
-          fetchAndShowSlots(7); // Загружаем на 7 дней (кнопка исчезнет из-за innerHTML = '')
-        };
-        cont.appendChild(moreBtn);
-      }
     }
 
     show('step-5');
