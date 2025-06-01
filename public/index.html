@@ -594,7 +594,7 @@ async function fetchAndShowSlots(days = 3) {
       body: JSON.stringify({
         direction: data.direction,
         address: data.address,
-        days: days // Добавляем параметр days
+        days: days
       })
     });
 
@@ -653,16 +653,18 @@ async function fetchAndShowSlots(days = 3) {
       noSlots.textContent = `Нет доступных слотов на ближайшие ${days} дней`;
       cont.appendChild(noSlots);
     } else if (days === 3) {
-      // Показываем кнопку "Больше" только при первоначальной загрузке (3 дня)
-      const moreBtn = document.createElement('button');
-      moreBtn.className = 'more';
-      moreBtn.id = 'weekBtn';
-      moreBtn.textContent = 'Больше';
-      moreBtn.onclick = () => {
-        moreBtn.remove(); // Удаляем кнопку
-        fetchAndShowSlots(7); // Загружаем на 7 дней
-      };
-      cont.appendChild(moreBtn);
+      // Показываем кнопку "Больше" только при загрузке на 3 дня
+      // И только если её еще нет
+      if (!document.getElementById('weekBtn')) {
+        const moreBtn = document.createElement('button');
+        moreBtn.className = 'more';
+        moreBtn.id = 'weekBtn';
+        moreBtn.textContent = 'Больше';
+        moreBtn.onclick = () => {
+          fetchAndShowSlots(7); // Загружаем на 7 дней (кнопка исчезнет из-за innerHTML = '')
+        };
+        cont.appendChild(moreBtn);
+      }
     }
 
     show('step-5');
@@ -675,5 +677,3 @@ async function fetchAndShowSlots(days = 3) {
   </script>
 </body>
 </html>
-
-
