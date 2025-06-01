@@ -141,7 +141,7 @@ async function saveSchedules(schedulesData) {
     for (const [address, scheduleArray] of Object.entries(schedulesData)) {
       await pool.query(
         'INSERT INTO schedules (address, schedule_data) VALUES ($1, $2)',
-        [address, JSON.stringify(scheduleArray)]
+        [address, scheduleArray] // Убираем JSON.stringify, так как используем JSONB
       );
     }
     console.log('✅ Schedules saved to database');
@@ -156,7 +156,10 @@ async function loadSchedules() {
     const schedules = {};
     
     for (const row of result.rows) {
-      schedules[row.address] = JSON.parse(row.schedule_data);
+      console.log('Row data type:', typeof row.schedule_data);
+      console.log('Row data:', row.schedule_data);
+      
+      schedules[row.address] = row.schedule_data;
     }
     
     console.log(`✅ Loaded schedules for ${Object.keys(schedules).length} addresses`);
