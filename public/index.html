@@ -578,6 +578,11 @@ document.getElementById('weekBtn').addEventListener('click', async function() {
   }
 });
 
+document.getElementById('options-slots').addEventListener('click', function(e) {
+  if (e.target && e.target.id === 'weekBtn') {
+    fetchAndShowSlots(7);
+  }
+});
 
 async function fetchAndShowSlots(days = 3) {
   if (!data.direction || !data.address) {
@@ -677,3 +682,5 @@ async function fetchAndShowSlots(days = 3) {
   </script>
 </body>
 </html>
+
+
