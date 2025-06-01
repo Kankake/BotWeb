@@ -156,9 +156,6 @@ async function loadSchedules() {
     const schedules = {};
     
     for (const row of result.rows) {
-      console.log('Row data type:', typeof row.schedule_data);
-      console.log('Row data:', row.schedule_data);
-      
       schedules[row.address] = row.schedule_data;
     }
     
