@@ -534,32 +534,15 @@ function populateDirs(showAll = false) {
   });
 }
 
-document.getElementById('weekBtn').addEventListener('click', async function() {
-  // Проверяем, что выбраны направление и адрес
+document.getElementById('weekBtn').addEventListener('click', function() {
   if (!data.direction || !data.address) {
     alert('Сначала выберите направление и студию');
     return;
   }
-
-  // Показываем индикатор загрузки
-  this.textContent = 'Загрузка...';
-  this.disabled = true;
-
-  try {
-    // Запрашиваем слоты на 7 дней
-    fetchAndShowSlots(7);
-    
-    // Скрываем кнопку "Больше" после загрузки расширенного списка
-    this.style.display = 'none';
-  } catch (error) {
-    console.error('Ошибка:', error);
-    alert('Ошибка при загрузке расписания');
-  } finally {
-    // Возвращаем кнопку в исходное состояние
-    this.textContent = 'Больше';
-    this.disabled = false;
-  }
+  
+  fetchAndShowSlots(7);
 });
+
 
 document.getElementById('options-slots').addEventListener('click', function(e) {
   if (e.target && e.target.id === 'weekBtn') {
