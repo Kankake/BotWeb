@@ -762,17 +762,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Endpoints
 app.post('/slots', (req, res) => {
-  const { direction, address, days = 3 } = req.body; // Добавляем параметр days с дефолтным значением 3
+  const { direction, address, days = 3 } = req.body;
   const now = new Date();
   const targetDate = new Date();
   targetDate.setDate(targetDate.getDate() + days);
 
-  console.log('REQUEST direction:', direction, '| address:', address, '| days:', days);
-  console.log('Current time:', now.toISOString());
-  console.log('Target date:', targetDate.toISOString());
-  
   const arr = schedules[address] || [];
-  console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
 
   const slots = arr
     .filter(slot => {
@@ -783,13 +778,11 @@ app.post('/slots', (req, res) => {
     })
     .map(slot => ({ date: slot.date, time: slot.time }))
     .sort((a, b) => {
-      // Сортируем по дате и времени
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
       return dateA - dateB;
     });
 
-  console.log('Filtered slots count:', slots.length);
   res.json({ ok: true, slots });
 });
 
@@ -806,13 +799,6 @@ app.get('/user-name/:telegram_id', async (req, res) => {
   });
 });
 
-app.get('/json', async (_req, res) => {
-  try {
-    res.json(schedules);
-  } catch (err) {
-    res.status(500).json({ error: 'Ошибка получения расписания' });
-  }
-});
 
 app.post('/submit', async (req, res) => {
   try {
@@ -891,20 +877,3 @@ process.once('SIGTERM', () => {
   }
 })
 
-app.get('/debug-schedules/:address', (req, res) => {
-  const address = req.params.address;
-  const arr = schedules[address] || [];
-  
-  const debugInfo = arr.map(slot => ({
-    ...slot,
-    parsedDateTime: new Date(`${slot.date}T${slot.time}`).toISOString(),
-    isValidDate: !isNaN(new Date(`${slot.date}T${slot.time}`).getTime())
-  }));
-  
-  res.json({
-    address,
-    totalSlots: arr.length,
-    currentTime: new Date().toISOString(),
-    slots: debugInfo
-  });
-});
