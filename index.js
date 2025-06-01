@@ -762,43 +762,32 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Endpoints
 app.post('/slots', (req, res) => {
-  const { direction, address } = req.body;
+  const { direction, address, days = 3 } = req.body; // Добавляем параметр days с дефолтным значением 3
   const now = new Date();
-  const threeDaysFromNow = new Date();
-  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + days);
 
-  console.log('REQUEST direction:', direction, '| address:', address);
+  console.log('REQUEST direction:', direction, '| address:', address, '| days:', days);
   console.log('Current time:', now.toISOString());
-  console.log('Three days from now:', threeDaysFromNow.toISOString());
+  console.log('Target date:', targetDate.toISOString());
   
   const arr = schedules[address] || [];
   console.log('SLOTS directions:', arr.map(s => '[' + s.direction + ']'));
-  console.log('Total slots for address:', arr.length);
 
   const slots = arr
     .filter(slot => {
       const slotDateTime = new Date(`${slot.date}T${slot.time}`);
       const match = slot.direction.trim() === direction.trim();
       
-      // Добавляем отладочную информацию
-      console.log('Checking slot:', {
-        date: slot.date,
-        time: slot.time,
-        direction: slot.direction,
-        slotDateTime: slotDateTime.toISOString(),
-        isValidDate: !isNaN(slotDateTime.getTime()),
-        isAfterNow: slotDateTime >= now,
-        isWithinThreeDays: slotDateTime <= threeDaysFromNow,
-        directionMatch: match
-      });
-      
-      if (match && slotDateTime >= now && slotDateTime <= threeDaysFromNow) {
-        console.log('MATCH FOUND:', slot.direction, '|', direction, '|', slot.date, slot.time);
-      }
-      
-      return match && !isNaN(slotDateTime.getTime()) && slotDateTime >= now && slotDateTime <= threeDaysFromNow;
+      return match && !isNaN(slotDateTime.getTime()) && slotDateTime >= now && slotDateTime <= targetDate;
     })
-    .map(slot => ({ date: slot.date, time: slot.time }));
+    .map(slot => ({ date: slot.date, time: slot.time }))
+    .sort((a, b) => {
+      // Сортируем по дате и времени
+      const dateA = new Date(`${a.date}T${a.time}`);
+      const dateB = new Date(`${b.date}T${b.time}`);
+      return dateA - dateB;
+    });
 
   console.log('Filtered slots count:', slots.length);
   res.json({ ok: true, slots });
