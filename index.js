@@ -303,6 +303,101 @@ async function updateScheduleFromExcel(filePath) {
   return newSchedules;
 }
 
+// НОВАЯ функция для обновления расписания из буфера
+async function updateScheduleFromBuffer(buffer) {
+  try {
+    console.log('📊 Starting to process Excel buffer...');
+    
+    // Читаем буфер как Excel файл
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    console.log('📋 Workbook sheets:', workbook.SheetNames);
+    
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet);
+    
+    console.log('📊 Raw data from Excel:', data.length, 'rows');
+    if (data.length > 0) {
+      console.log('📊 First row sample:', data[0]);
+    }
+
+    const newSchedules = {};
+    let processedRows = 0;
+    let errorRows = 0;
+
+    data.forEach((row, index) => {
+      try {
+        // Проверяем наличие обязательных полей
+        if (!row.date || !row.time || !row.direction || !row.address) {
+          console.log(`⚠️ Row ${index + 1} missing required fields:`, row);
+          errorRows++;
+          return;
+        }
+
+        let dateValue = row.date;
+        
+        // Обработка даты
+        if (typeof dateValue === 'number') {
+          // Excel serial date
+          dateValue = new Date((dateValue - 25569) * 86400 * 1000);
+        } else {
+          dateValue = new Date(dateValue);
+        }
+        
+        if (isNaN(dateValue.getTime())) {
+          console.log(`⚠️ Row ${index + 1} invalid date:`, row.date);
+          errorRows++;
+          return;
+        }
+        
+        const formattedDate = dateValue.toISOString().split('T')[0];
+        const address = row.address.toString().trim();
+
+        if (!newSchedules[address]) {
+          newSchedules[address] = [];
+        }
+
+        const orderedEntry = {
+          date: formattedDate,
+          time: row.time.toString().trim(),
+          direction: row.direction.toString().trim(),
+          address: address
+        };
+
+        newSchedules[address].push(orderedEntry);
+        processedRows++;
+        
+      } catch (error) {
+        console.error(`❌ Error processing row ${index + 1}:`, error, row);
+        errorRows++;
+      }
+    });
+
+    console.log('📊 Processing complete:', {
+      processedRows,
+      errorRows,
+      addresses: Object.keys(newSchedules).length
+    });
+
+    // Сохраняем в базу данных
+    await saveSchedules(newSchedules);
+    
+    // Обновляем глобальную переменную
+    schedules = newSchedules;
+    
+    console.log('✅ Schedules updated successfully');
+
+    return {
+      newSchedules,
+      processedRows,
+      errorRows
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in updateScheduleFromBuffer:', error);
+    throw error;
+  }
+}
+
 bot.start(async ctx => {
   const firstName = ctx.from.first_name || 'клиент';
   const username = ctx.from.username || '';
@@ -616,7 +711,16 @@ bot.command('broadcast', async (ctx) => {
 
 // Упрощенный обработчик с использованием функции
 bot.on('document', async (ctx) => {
-  if (!awaitingScheduleUpload.has(ctx.chat.id) || !(await isAdminUser(ctx))) {
+  console.log('📄 Document received from:', ctx.chat.id);
+  console.log('📋 Awaiting upload list:', Array.from(awaitingScheduleUpload));
+  
+  if (!awaitingScheduleUpload.has(ctx.chat.id)) {
+    console.log('❌ User not in awaiting list');
+    return;
+  }
+  
+  if (!(await isAdminUser(ctx))) {
+    console.log('❌ User is not admin');
     return;
   }
 
@@ -624,6 +728,7 @@ bot.on('document', async (ctx) => {
   
   try {
     const fileName = ctx.message.document.file_name;
+    console.log('📄 Processing file:', fileName);
     
     if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
       return ctx.reply('❌ Пожалуйста, отправьте файл Excel (.xlsx или .xls)');
@@ -632,8 +737,11 @@ bot.on('document', async (ctx) => {
     await ctx.reply('⏳ Обрабатываю файл расписания...');
 
     const fileLink = await ctx.telegram.getFileLink(ctx.message.document.file_id);
+    console.log('🔗 File link obtained:', fileLink.href);
+    
     const response = await fetch(fileLink.href);
     const buffer = await response.buffer();
+    console.log('📦 Buffer size:', buffer.length, 'bytes');
 
     const result = await updateScheduleFromBuffer(buffer);
     
