@@ -143,12 +143,13 @@ async function saveSchedules(schedulesData) {
     for (const [address, scheduleArray] of Object.entries(schedulesData)) {
       await pool.query(
         'INSERT INTO schedules (address, schedule_data) VALUES ($1, $2)',
-        [address, scheduleArray] // Убираем JSON.stringify, так как используем JSONB
+        [address, JSON.stringify(scheduleArray)] // Добавляем JSON.stringify для JSONB
       );
     }
     console.log('✅ Schedules saved to database');
   } catch (err) {
     console.error('❌ Failed to save schedules:', err);
+    throw err; // Добавляем throw для лучшей отладки
   }
 }
 
