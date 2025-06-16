@@ -616,26 +616,39 @@ bot.command('broadcast', async (ctx) => {
 
 // Исправленный обработчик документов
 bot.on('document', async (ctx) => {
-  console.log('📄 Получен документ от:', ctx.chat.id);
+  console.log('📄 === НАЧАЛО ОБРАБОТКИ ДОКУМЕНТА ===');
+  console.log('📄 Получен документ от chat_id:', ctx.chat.id);
+  console.log('📄 Получен документ от user_id:', ctx.from.id);
   console.log('📄 Имя файла:', ctx.message.document.file_name);
-  console.log('📄 Ожидающие загрузки:', Array.from(awaitingScheduleUpload));
+  console.log('📄 MIME тип:', ctx.message.document.mime_type);
+  console.log('📄 Размер файла:', ctx.message.document.file_size);
+  console.log('📋 Ожидающие загрузки (полный список):', Array.from(awaitingScheduleUpload));
+  console.log('📋 Размер Set ожидающих:', awaitingScheduleUpload.size);
+  console.log('📋 Содержит ли наш chat_id:', awaitingScheduleUpload.has(ctx.chat.id));
+  console.log('📋 ADMIN_CHAT_ID:', ADMIN_CHAT_ID);
+  console.log('📋 ctx.chat.id тип:', typeof ctx.chat.id);
+  console.log('📋 ADMIN_CHAT_ID тип:', typeof ADMIN_CHAT_ID);
   
   try {
     if (!awaitingScheduleUpload.has(ctx.chat.id)) {
-      console.log('❌ Пользователь не в списке ожидающих загрузку');
+      console.log('❌ Пользователь НЕ в списке ожидающих загрузку - выходим');
+      console.log('📄 === КОНЕЦ ОБРАБОТКИ ДОКУМЕНТА (НЕ ОЖИДАЕТСЯ) ===');
       return;
     }
     
-    console.log('✅ Пользователь найден в списке ожидающих');
+    console.log('✅ Пользователь НАЙДЕН в списке ожидающих');
     
     if (!(await isAdminUser(ctx))) {
-      console.log('❌ Пользователь не админ');
+      console.log('❌ Пользователь НЕ админ');
       awaitingScheduleUpload.delete(ctx.chat.id);
+      console.log('📄 === КОНЕЦ ОБРАБОТКИ ДОКУМЕНТА (НЕ АДМИН) ===');
       return ctx.reply('❌ У вас нет прав для обновления расписания');
     }
 
     console.log('✅ Админ подтвержден, начинаем обработку файла');
     awaitingScheduleUpload.delete(ctx.chat.id);
+    console.log('📋 Удалили из списка ожидающих, новый размер:', awaitingScheduleUpload.size);
+    
     await ctx.reply('⏳ Обрабатываю файл расписания...');
 
     const fileId = ctx.message.document.file_id;
@@ -646,16 +659,17 @@ bot.on('document', async (ctx) => {
     
     if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
       console.log('❌ Неправильный формат файла');
+      console.log('📄 === КОНЕЦ ОБРАБОТКИ ДОКУМЕНТА (НЕПРАВИЛЬНЫЙ ФОРМАТ) ===');
       return ctx.reply('❌ Пожалуйста, отправьте файл Excel (.xlsx или .xls)');
     }
 
     console.log('⬇️ Загружаем файл...');
     const fileLink = await ctx.telegram.getFileLink(fileId);
-    console.log('🔗 File link:', fileLink.href);
+    console.log('🔗 File link получен');
     
     const response = await fetch(fileLink.href);
     const buffer = await response.buffer();
-    console.log('📦 Buffer size:', buffer.length);
+    console.log('📦 Buffer получен, размер:', buffer.length);
 
     console.log('📊 Обрабатываем Excel...');
     const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -663,22 +677,42 @@ bot.on('document', async (ctx) => {
     const data = XLSX.utils.sheet_to_json(sheet);
 
     console.log('📋 Данных в файле:', data.length);
-    console.log('📋 Первые 3 строки:', data.slice(0, 3));
+    if (data.length > 0) {
+      console.log('📋 Первая строка:', data[0]);
+      console.log('📋 Колонки в файле:', Object.keys(data[0]));
+    }
 
     if (data.length === 0) {
+      console.log('❌ Файл пустой');
+      console.log('📄 === КОНЕЦ ОБРАБОТКИ ДОКУМЕНТА (ПУСТОЙ ФАЙЛ) ===');
       return ctx.reply('❌ Файл пустой или не содержит данных');
     }
 
     const newSchedules = {};
+    let processedRows = 0;
+    let errorRows = 0;
 
     data.forEach((row, index) => {
       try {
+        if (!row.date || !row.time || !row.direction || !row.address) {
+          console.log(`⚠️ Пропускаем строку ${index + 1} - отсутствуют обязательные поля:`, row);
+          errorRows++;
+          return;
+        }
+
         let dateValue = row.date;
         if (typeof dateValue === 'number') {
           dateValue = new Date((dateValue - 25569) * 86400 * 1000);
         } else {
           dateValue = new Date(dateValue);
         }
+        
+        if (isNaN(dateValue.getTime())) {
+          console.log(`⚠️ Пропускаем строку ${index + 1} - неправильная дата:`, row.date);
+          errorRows++;
+          return;
+        }
+        
         const formattedDate = dateValue.toISOString().split('T')[0];
 
         if (!newSchedules[row.address]) {
@@ -693,32 +727,47 @@ bot.on('document', async (ctx) => {
         };
 
         newSchedules[row.address].push(orderedEntry);
+        processedRows++;
       } catch (rowError) {
         console.error(`❌ Ошибка в строке ${index + 1}:`, rowError, row);
+        errorRows++;
       }
     });
 
-    console.log('🏗️ Сгенерированные расписания:', Object.keys(newSchedules));
+    console.log('🏗️ Обработка завершена:');
+    console.log('✅ Обработано строк:', processedRows);
+    console.log('❌ Ошибок в строках:', errorRows);
+    console.log('🏢 Сгенерированные студии:', Object.keys(newSchedules));
     console.log('📊 Количество записей по студиям:', Object.fromEntries(
       Object.entries(newSchedules).map(([key, value]) => [key, value.length])
     ));
 
+    if (processedRows === 0) {
+      console.log('❌ Ни одной строки не обработано');
+      console.log('📄 === КОНЕЦ ОБРАБОТКИ ДОКУМЕНТА (НЕТ ДАННЫХ) ===');
+      return ctx.reply('❌ Не удалось обработать данные из файла. Проверьте формат колонок: date, time, direction, address');
+    }
+
     console.log('💾 Сохраняем в базу данных...');
     await saveSchedules(newSchedules);
+    console.log('✅ Сохранено в БД');
     
     console.log('🔄 Обновляем глобальную переменную...');
     schedules = newSchedules;
-    
-    console.log('✅ Глобальная переменная обновлена:', Object.keys(schedules));
+    console.log('✅ Глобальная переменная обновлена, студий:', Object.keys(schedules).length);
 
     const totalEntries = Object.values(newSchedules).reduce((sum, arr) => sum + arr.length, 0);
     
-    await ctx.reply(`✅ Расписание успешно обновлено!\n📊 Загружено записей: ${totalEntries}\n🏢 Студий: ${Object.keys(newSchedules).length}`);
+    await ctx.reply(`✅ Расписание успешно обновлено!\n📊 Загружено записей: ${totalEntries}\n🏢 Студий: ${Object.keys(newSchedules).length}\n⚠️ Ошибок в строках: ${errorRows}`);
+    
+    console.log('📄 === КОНЕЦ ОБРАБОТКИ ДОКУМЕНТА (УСПЕШНО) ===');
     
   } catch (error) {
     console.error('❌ Ошибка при обработке файла расписания:', error);
+    console.error('❌ Stack trace:', error.stack);
     awaitingScheduleUpload.delete(ctx.chat.id);
     ctx.reply(`❌ Ошибка при обработке файла расписания: ${error.message}`);
+    console.log('📄 === КОНЕЦ ОБРАБОТКИ ДОКУМЕНТА (ОШИБКА) ===');
   }
 });
 
