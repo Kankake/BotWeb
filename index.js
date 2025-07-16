@@ -26,7 +26,6 @@ const connection = await mysql.createConnection({
   database: "default_db",
   port: 3306,
   ssl: {
-    ca: await fs.readFile(path.join(os.homedir(), '.cloud-certs', 'root.crt'), 'utf-8'),
     rejectUnauthorized: true
   }
 });
