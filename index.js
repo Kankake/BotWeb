@@ -1,9 +1,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
-import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import fs from 'fs/promises';
 import { Telegraf, Markup } from 'telegraf';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
