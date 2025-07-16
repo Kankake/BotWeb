@@ -15,8 +15,6 @@ dotenv.config();
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
-import fs from 'fs/promises';
-import path from 'path';
 import os from 'os';
 import mysql from 'mysql2/promise'; // Using promise-based version
 
