@@ -972,6 +972,13 @@ app.listen(PORT, async () => {
   }
 });
 
+// Add this after your webhook setup
+bot.catch((err, ctx) => {
+  console.error('Bot error:', err);
+  console.log('Context:', ctx.message);
+});
+
+
 // Graceful shutdown
 process.once('SIGINT', () => {
   if (bot.isRunning) {
