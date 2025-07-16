@@ -931,7 +931,7 @@ async function sendBookingToAdmin(bookingData) {
 app.use(bot.webhookCallback(WEBHOOK_PATH));
 
 // At app startup
-console.log('🚀 Bot starting up...');
+console.log(' Bot starting up...');
 console.log('Environment:', {
   PORT,
   WEBHOOK_PATH,
