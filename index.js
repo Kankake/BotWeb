@@ -26,7 +26,7 @@ const connection = await mysql.createConnection({
   database: "default_db",
   port: 3306,
   ssl: {
-    rejectUnauthorized: true
+    rejectUnauthorized: false
   }
 });
 
