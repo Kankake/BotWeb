@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -15,6 +15,9 @@ dotenv.config();
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
+// Change the import style from require to ES modules
+import fs from 'fs/promises';
+import path from 'path';
 import os from 'os';
 import mysql from 'mysql2/promise'; // Using promise-based version
 
@@ -29,6 +32,19 @@ const connection = await mysql.createConnection({
     rejectUnauthorized: true
   }
 });
+
+// Add this after the connection creation
+connection.on('error', (err) => {
+  console.log('Database connection error:', err);
+});
+
+// Add this to test the connection
+try {
+  await connection.query('SELECT 1');
+  console.log('✅ MySQL Connected!');
+} catch (err) {
+  console.log('❌ MySQL Connection Error:', err);
+}
 
 let schedules = {}; // глобальная переменная
 
@@ -941,7 +957,7 @@ async function sendBookingToAdmin(bookingData) {
 app.use(bot.webhookCallback(WEBHOOK_PATH));
 
 // At app startup
-console.log(' Bot starting up...');
+console.log('🚀 Bot starting up...');
 console.log('Environment:', {
   PORT,
   WEBHOOK_PATH,
