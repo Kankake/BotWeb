@@ -15,9 +15,21 @@ dotenv.config();
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+import mysql from 'mysql2/promise'; // Using promise-based version
+
+const connection = await mysql.createConnection({
+  host: "459fa9d9406dcef02c7cbfca.twc1.net",
+  user: "gen_user", 
+  password: "6_$-(bJ8,hI;jw",
+  database: "default_db",
+  port: 3306,
+  ssl: {
+    ca: await fs.readFile(path.join(os.homedir(), '.cloud-certs', 'root.crt'), 'utf-8'),
+    rejectUnauthorized: true
+  }
 });
 
 let schedules = {}; // глобальная переменная
