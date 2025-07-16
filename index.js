@@ -25,7 +25,7 @@ let schedules = {}; // глобальная переменная
 pool.connect()
   .then(async () => {
     console.log('✅ DB connected!');
-    schedules = await loadSchedules(); // ← загружаем расписания
+    schedules = await loadSchedules(); // загружаем расписания
   })
   .catch(err => console.error('❌ DB connection error:', err));
 
