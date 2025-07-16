@@ -24,7 +24,7 @@ let schedules = {}; // глобальная переменная
 
 pool.connect()
   .then(async () => {
-    console.log('✅ DB connected!');
+    console.log("✅ DB connected!");
     schedules = await loadSchedules(); // загружаем расписания
   })
   .catch(err => console.error('❌ DB connection error:', err));
@@ -63,9 +63,9 @@ async function initDatabase() {
       )
     `);
     
-    console.log('✅ Database tables initialized');
+    console.log("✅ Database tables initialized");
   } catch (err) {
-    console.error('❌ Database initialization error:', err);
+    console.error("❌ Database initialization error:", err);
   }
 }
 
@@ -76,9 +76,9 @@ async function addUser(userId, firstName, username) {
       'INSERT INTO bot_users (user_id, first_name, username) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING',
       [userId, firstName || '', username || '']
     );
-    console.log(`👤 User added/updated: ${userId}`);
+    console.log("👤 User added/updated: ${userId}");
   } catch (err) {
-    console.error('❌ Failed to add user:', err);
+    console.error("❌ Failed to add user:", err);
   }
 }
 
@@ -87,7 +87,7 @@ async function getUsersCount() {
     const result = await pool.query('SELECT COUNT(*) FROM bot_users');
     return parseInt(result.rows[0].count);
   } catch (err) {
-    console.error('❌ Failed to get users count:', err);
+    console.error("❌ Failed to get users count:", err);
     return 0;
   }
 }
@@ -97,7 +97,7 @@ async function getAllUsers() {
     const result = await pool.query('SELECT user_id FROM bot_users');
     return result.rows.map(row => row.user_id);
   } catch (err) {
-    console.error('❌ Failed to get all users:', err);
+    console.error("❌ Failed to get all users:", err);
     return [];
   }
 }
@@ -105,9 +105,9 @@ async function getAllUsers() {
 async function removeUser(userId) {
   try {
     await pool.query('DELETE FROM bot_users WHERE user_id = $1', [userId]);
-    console.log(`👤 User removed: ${userId}`);
+    console.log("👤 User removed: ${userId}");
   } catch (err) {
-    console.error('❌ Failed to remove user:', err);
+    console.error("❌ Failed to remove user:", err);
   }
 }
 
@@ -119,7 +119,7 @@ async function setUserName(chatId, name) {
       [chatId, name]
     );
   } catch (err) {
-    console.error('❌ Failed to set user name:', err);
+    console.error("❌ Failed to set user name:", err);
   }
 }
 
@@ -128,7 +128,7 @@ async function getUserName(chatId) {
     const result = await pool.query('SELECT custom_name FROM user_names WHERE chat_id = $1', [chatId]);
     return result.rows[0]?.custom_name || null;
   } catch (err) {
-    console.error('❌ Failed to get user name:', err);
+    console.error("❌ Failed to get user name:", err);
     return null;
   }
 }
@@ -146,9 +146,9 @@ async function saveSchedules(schedulesData) {
         [address, JSON.stringify(scheduleArray)] // Добавляем JSON.stringify для JSONB
       );
     }
-    console.log('✅ Schedules saved to database');
+    console.log("✅ Schedules saved to database");
   } catch (err) {
-    console.error('❌ Failed to save schedules:', err);
+    console.error("❌ Failed to save schedules:", err);
     throw err; // Добавляем throw для лучшей отладки
   }
 }
@@ -162,10 +162,10 @@ async function loadSchedules() {
       schedules[row.address] = row.schedule_data;
     }
     
-    console.log(`✅ Loaded schedules for ${Object.keys(schedules).length} addresses`);
+    console.log("✅ Loaded schedules for ${Object.keys(schedules).length} addresses");
     return schedules;
   } catch (err) {
-    console.error('❌ Failed to load schedules:', err);
+    console.error("❌ Failed to load schedules:", err);
     return {};
   }
 }
@@ -195,7 +195,7 @@ const pendingBookings = new Map();
 
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
-  console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
+  console.error("❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL");
   process.exit(1);
 }
 
@@ -307,18 +307,18 @@ async function updateScheduleFromExcel(filePath) {
 // НОВАЯ функция для обновления расписания из буфера
 async function updateScheduleFromBuffer(buffer) {
   try {
-    console.log('📊 Starting to process Excel buffer...');
+    console.log("📊 Starting to process Excel buffer...");
     
     // Читаем буфер как Excel файл
     const workbook = XLSX.read(buffer, { type: 'buffer' });
-    console.log('📋 Workbook sheets:', workbook.SheetNames);
+    console.log("📋 Workbook sheets:", workbook.SheetNames);
     
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
-    console.log('📊 Raw data from Excel:', data.length, 'rows');
+    console.log("📊 Raw data from Excel:", data.length, 'rows');
     if (data.length > 0) {
-      console.log('📊 First row sample:', data[0]);
+      console.log("📊 First row sample:", data[0]);
     }
 
     const newSchedules = {};
@@ -329,7 +329,7 @@ async function updateScheduleFromBuffer(buffer) {
       try {
         // Проверяем наличие обязательных полей
         if (!row.date || !row.time || !row.direction || !row.address) {
-          console.log(`⚠️ Row ${index + 1} missing required fields:`, row);
+          console.log("⚠️ Row ${index + 1} missing required fields:", row);
           errorRows++;
           return;
         }
@@ -345,7 +345,7 @@ async function updateScheduleFromBuffer(buffer) {
         }
         
         if (isNaN(dateValue.getTime())) {
-          console.log(`⚠️ Row ${index + 1} invalid date:`, row.date);
+          console.log("⚠️ Row ${index + 1} invalid date:", row.date);
           errorRows++;
           return;
         }
@@ -368,12 +368,12 @@ async function updateScheduleFromBuffer(buffer) {
         processedRows++;
         
       } catch (error) {
-        console.error(`❌ Error processing row ${index + 1}:`, error, row);
+        console.error("❌ Error processing row ${index + 1}:", error, row);
         errorRows++;
       }
     });
 
-    console.log('📊 Processing complete:', {
+    console.log("📊 Processing complete:", {
       processedRows,
       errorRows,
       addresses: Object.keys(newSchedules).length
@@ -385,7 +385,7 @@ async function updateScheduleFromBuffer(buffer) {
     // Обновляем глобальную переменную
     schedules = newSchedules;
     
-    console.log('✅ Schedules updated successfully');
+    console.log("✅ Schedules updated successfully");
 
     return {
       newSchedules,
@@ -394,7 +394,7 @@ async function updateScheduleFromBuffer(buffer) {
     };
     
   } catch (error) {
-    console.error('❌ Error in updateScheduleFromBuffer:', error);
+    console.error("❌ Error in updateScheduleFromBuffer:", error);
     throw error;
   }
 }
@@ -422,7 +422,7 @@ bot.start(async ctx => {
     const t15 = setTimeout(() => {
     bot.telegram.sendMessage(
       chatId,
-      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
+      "${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈",
   Markup.inlineKeyboard([
     Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
   ])
@@ -432,7 +432,7 @@ bot.start(async ctx => {
   const t3 = setTimeout(() => {
     bot.telegram.sendMessage(
       chatId,
-      `👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!`,
+      "👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!",
       Markup.inlineKeyboard([
     Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
   ])
@@ -442,7 +442,7 @@ bot.start(async ctx => {
   const t24 = setTimeout(() => {
       bot.telegram.sendMessage(
         chatId, 
-        `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
+        "${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈",
         Markup.inlineKeyboard([
     Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
   ])
@@ -469,7 +469,7 @@ bot.hears('Да', async ctx => {
   return ctx.reply(
     'Отлично! Выберите действие:',
     Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+      ["🖥️ Запись онлайн", "📞 Запись по звонку администратора"],
       ['Контакты']
     ])
     .resize()
@@ -485,7 +485,7 @@ bot.hears('🖥️ Запись онлайн', ctx => {
   );
 });
 
-bot.hears('📞 Запись по звонку администратора', ctx => {
+bot.hears("📞 Запись по звонку администратора", ctx => {
   return ctx.reply(
     'Пожалуйста, нажмите кнопку, чтобы поделиться контактом, и мы вам перезвоним.',
     Markup.keyboard([
@@ -495,11 +495,11 @@ bot.hears('📞 Запись по звонку администратора', ct
   );
 });
 
-bot.hears('⬅️ Назад', ctx => {
+bot.hears("⬅️ Назад", ctx => {
   return ctx.reply(
     'Выберите действие:',
     Markup.keyboard([
-      ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+      ["🖥️ Запись онлайн", "📞 Запись по звонку администратора"],
       ['Контакты']
     ])
     .resize()
@@ -528,64 +528,64 @@ bot.on('text', async (ctx) => {
   const botUsername = ctx.botInfo.username;
   
   if (text.startsWith(`/update_schedule@${botUsername}`)) {
-    console.log('📝 Команда update_schedule с упоминанием получена от:', ctx.chat.id);
+    console.log("📝 Команда update_schedule с упоминанием получена от:", ctx.chat.id);
     
     if (!(await isAdminUser(ctx))) {
-      console.log('❌ Пользователь не админ');
+      console.log("❌ Пользователь не админ");
       return ctx.reply('❌ У вас нет прав для выполнения этой команды');
     }
     
-    console.log('✅ Админ подтвержден, добавляем в ожидание');
+    console.log("✅ Админ подтвержден, добавляем в ожидание");
     awaitingScheduleUpload.add(ctx.chat.id);
     return ctx.reply('📤 Отправьте файл Excel с расписанием для обновления');
   }
   
   if (text.startsWith(`/cancel_schedule@${botUsername}`)) {
-    console.log('📝 Команда cancel_schedule с упоминанием получена от:', ctx.chat.id);
+    console.log("📝 Команда cancel_schedule с упоминанием получена от:", ctx.chat.id);
     
     if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+      return ctx.reply("❌ У вас нет прав для выполнения этой команды");
     }
     
     if (awaitingScheduleUpload.has(ctx.chat.id)) {
       awaitingScheduleUpload.delete(ctx.chat.id);
-      ctx.reply('❌ Загрузка расписания отменена');
+      ctx.reply("❌ Загрузка расписания отменена");
     } else {
-      ctx.reply('ℹ️ Загрузка расписания не была активна');
+      ctx.reply("ℹ️ Загрузка расписания не была активна");
     }
     return;
   }
   
   // Добавляем обработку команды users_count с упоминанием
   if (text.startsWith(`/users_count@${botUsername}`)) {
-  console.log('📝 Команда users_count с упоминанием получена от:', ctx.chat.id);
+  console.log("📝 Команда users_count с упоминанием получена от:", ctx.chat.id);
   console.log('Using DB URL:', process.env.DATABASE_URL);
 
   if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    return ctx.reply("❌ У вас нет прав для выполнения этой команды");
   }
 
   try {
     const result = await pool.query('SELECT COUNT(*) FROM bot_users');
     const count = result.rows[0].count;
-    return ctx.reply(`👥 Всего пользователей бота: ${count}`);
+    return ctx.reply("👥 Всего пользователей бота: ${count}");
   } catch (err) {
-    console.error('❌ Failed to get user count:', err);
-    return ctx.reply('⚠️ Ошибка при получении количества пользователей');
+    console.error("❌ Failed to get user count:", err);
+    return ctx.reply("⚠️ Ошибка при получении количества пользователей");
   }
 }
 
   
   // Добавляем обработку команды broadcast с упоминанием
   if (text.startsWith(`/broadcast@${botUsername}`)) {
-    console.log('📝 Команда broadcast с упоминанием получена от:', ctx.chat.id);
+    console.log("📝 Команда broadcast с упоминанием получена от:", ctx.chat.id);
     
     if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+      return ctx.reply("❌ У вас нет прав для выполнения этой команды");
     }
     
     awaitingBroadcast.add(ctx.chat.id);
-    return ctx.reply('📢 Введите сообщение для рассылки всем пользователям:');
+    return ctx.reply("📢 Введите сообщение для рассылки всем пользователям:");
   }
   
   // Обработка пользовательского имени
@@ -598,7 +598,7 @@ bot.on('text', async (ctx) => {
     await ctx.reply(
       `Приятно познакомиться, ${customName}! Выберите действие:`,
       Markup.keyboard([
-        ['🖥️ Запись онлайн', '📞 Запись по звонку администратора'],
+        ["🖥️ Запись онлайн", "📞 Запись по звонку администратора"],
         ['Контакты']
       ])
       .resize()
@@ -610,13 +610,13 @@ bot.on('text', async (ctx) => {
   if (awaitingBroadcast.has(ctx.chat.id)) {
      if (!(await isAdminUser(ctx))) {
        awaitingBroadcast.delete(ctx.chat.id);
-       return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+       return ctx.reply("❌ У вас нет прав для выполнения этой команды");
      }
     
      const broadcastMessage = text;
      awaitingBroadcast.delete(ctx.chat.id);
     
-     await ctx.reply('📤 Начинаю рассылку...');
+     await ctx.reply("📤 Начинаю рассылку...");
     
      let successCount = 0;
      let errorCount = 0;
@@ -639,7 +639,7 @@ bot.on('text', async (ctx) => {
      }
     
      const finalCount = await getUsersCount();
-     await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${finalCount}`);
+     await ctx.reply("✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${finalCount}");
      return;
    }
   });
@@ -655,34 +655,34 @@ bot.command('contacts', ctx => {
 
 // Исправленная команда update_schedule
 bot.command('update_schedule', async (ctx) => {
-  console.log('📝 Команда update_schedule получена от:', ctx.chat.id, 'ADMIN_CHAT_ID:', ADMIN_CHAT_ID);
-  console.log('🔍 Тип чата:', ctx.chat.type);
+  console.log("📝 Команда update_schedule получена от:', ctx.chat.id, 'ADMIN_CHAT_ID:", ADMIN_CHAT_ID);
+  console.log("🔍 Тип чата:", ctx.chat.type);
   
   if (!(await isAdminUser(ctx))) {
-    console.log('❌ Пользователь не админ');
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    console.log("❌ Пользователь не админ");
+    return ctx.reply("❌ У вас нет прав для выполнения этой команды");
   }
   
-  console.log('✅ Админ подтвержден, добавляем в ожидание');
+  console.log("✅ Админ подтвержден, добавляем в ожидание");
   awaitingScheduleUpload.add(ctx.chat.id);
-  console.log('📋 Текущий список ожидающих:', Array.from(awaitingScheduleUpload));
+  console.log("📋 Текущий список ожидающих:", Array.from(awaitingScheduleUpload));
   
-  await ctx.reply('📤 Отправьте файл Excel с расписанием для обновления\n\n⚠️ Убедитесь, что файл содержит колонки: date, time, direction, address');
+  await ctx.reply("📤 Отправьте файл Excel с расписанием для обновления\n\n⚠️ Убедитесь, что файл содержит колонки: date, time, direction, address");
 });
 
 // Команда для отмены загрузки расписания
 bot.command('cancel_schedule', async (ctx) => {
-  console.log('📝 Команда cancel_schedule получена от:', ctx.chat.id);
+  console.log("📝 Команда cancel_schedule получена от:", ctx.chat.id);
   
   if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    return ctx.reply("❌ У вас нет прав для выполнения этой команды");
   }
   
   if (awaitingScheduleUpload.has(ctx.chat.id)) {
     awaitingScheduleUpload.delete(ctx.chat.id);
-    ctx.reply('❌ Загрузка расписания отменена');
+    ctx.reply("❌ Загрузка расписания отменена");
   } else {
-    ctx.reply('ℹ️ Загрузка расписания не была активна');
+    ctx.reply("ℹ️ Загрузка расписания не была активна");
   }
 });
 
@@ -691,9 +691,9 @@ bot.command('users_count', async (ctx) => {
   try {
     const res = await pool.query('SELECT COUNT(*) FROM bot_users');
     const count = parseInt(res.rows[0].count, 10);
-    return ctx.reply(`👥 Всего пользователей бота: ${count}`);
+    return ctx.reply("👥 Всего пользователей бота: ${count}");
   } catch (err) {
-    console.error('❌ Failed to get users count:', err);
+    console.error("❌ Failed to get users count:", err);
     return ctx.reply('Ошибка при получении количества пользователей.');
   }
 });
@@ -703,25 +703,25 @@ bot.command('users_count', async (ctx) => {
 // Команда для рассылки
 bot.command('broadcast', async (ctx) => {
   if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    return ctx.reply("❌ У вас нет прав для выполнения этой команды");
   }
   
   awaitingBroadcast.add(ctx.chat.id);
-  ctx.reply('📢 Введите сообщение для рассылки всем пользователям:');
+  ctx.reply("📢 Введите сообщение для рассылки всем пользователям:");
 });
 
 // Упрощенный обработчик с использованием функции
 bot.on('document', async (ctx) => {
-  console.log('📄 Document received from:', ctx.chat.id);
-  console.log('📋 Awaiting upload list:', Array.from(awaitingScheduleUpload));
+  console.log("📄 Document received from:", ctx.chat.id);
+  console.log("📋 Awaiting upload list:", Array.from(awaitingScheduleUpload));
   
   if (!awaitingScheduleUpload.has(ctx.chat.id)) {
-    console.log('❌ User not in awaiting list');
+    console.log("❌ User not in awaiting list");
     return;
   }
   
   if (!(await isAdminUser(ctx))) {
-    console.log('❌ User is not admin');
+    console.log("❌ User is not admin");
     return;
   }
 
@@ -729,42 +729,42 @@ bot.on('document', async (ctx) => {
   
   try {
     const fileName = ctx.message.document.file_name;
-    console.log('📄 Processing file:', fileName);
+    console.log(' Processing file:', fileName);
     
     if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
-      return ctx.reply('❌ Пожалуйста, отправьте файл Excel (.xlsx или .xls)');
+      return ctx.reply(' Пожалуйста, отправьте файл Excel (.xlsx или .xls)');
     }
 
-    await ctx.reply('⏳ Обрабатываю файл расписания...');
+    await ctx.reply(' Обрабатываю файл расписания...');
 
     const fileLink = await ctx.telegram.getFileLink(ctx.message.document.file_id);
-    console.log('🔗 File link obtained:', fileLink.href);
+    console.log(' File link obtained:', fileLink.href);
     
     const response = await fetch(fileLink.href);
     const buffer = await response.buffer();
-    console.log('📦 Buffer size:', buffer.length, 'bytes');
+    console.log(' Buffer size:', buffer.length, 'bytes');
 
     const result = await updateScheduleFromBuffer(buffer);
     
-    await ctx.reply(`✅ Расписание успешно обновлено!\n📊 Загружено записей: ${result.processedRows}\n🏢 Студий: ${Object.keys(result.newSchedules).length}\n⚠️ Ошибок в строках: ${result.errorRows}`);
+    await ctx.reply("✅ Расписание успешно обновлено!\n📊 Загружено записей: ${result.processedRows}\n🏢 Студий: ${Object.keys(result.newSchedules).length}\n⚠️ Ошибок в строках: ${result.errorRows}");
     
   } catch (error) {
-    console.error('❌ Ошибка при обработке файла:', error);
-    ctx.reply(`❌ Ошибка: ${error.message}`);
+    console.error(' Ошибка при обработке файла:', error);
+    ctx.reply(` Ошибка: ${error.message}`);
   }
 });
 
 bot.command('check_schedules', async (ctx) => {
   if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    return ctx.reply(' У вас нет прав для выполнения этой команды');
   }
   
   const addressCount = Object.keys(schedules).length;
   const totalSlots = Object.values(schedules).reduce((sum, arr) => sum + arr.length, 0);
   
-  let message = `📊 Текущее состояние расписаний:\n`;
-  message += `🏢 Студий: ${addressCount}\n`;
-  message += `📅 Всего слотов: ${totalSlots}\n\n`;
+  let message = ` Текущее состояние расписаний:\n`;
+  message += ` Студий: ${addressCount}\n`;
+  message += ` Всего слотов: ${totalSlots}\n\n`;
   
   if (addressCount > 0) {
     message += `Студии:\n`;
@@ -772,7 +772,7 @@ bot.command('check_schedules', async (ctx) => {
       message += `• ${address}: ${schedules[address].length} слотов\n`;
     });
   } else {
-    message += `❌ Расписания не загружены`;
+    message += ` Расписания не загружены`;
   }
   
   await ctx.reply(message);
@@ -898,7 +898,7 @@ app.post('/submit', async (req, res) => {
       'Спасибо! Для подтверждения, пожалуйста, поделитесь контактом.',
       {
         reply_markup: {
-          keyboard: [[{ text: '📲 Подтвердить запись', request_contact: true }]],
+          keyboard: [[{ text: "📲 Подтвердить запись", request_contact: true }]],
           resize_keyboard: true,
           one_time_keyboard: true
         }
@@ -940,14 +940,14 @@ console.log('Environment:', {
 
 // For webhook setup
 app.listen(PORT, async () => {
-  console.log(`🌐 Server starting on port ${PORT}`);
+  console.log(` Server starting on port ${PORT}`);
   try {
     await bot.telegram.deleteWebhook();
-    console.log('🔄 Old webhook deleted');
+    console.log(' Old webhook deleted');
     await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-    console.log('✅ New webhook set successfully');
+    console.log(' New webhook set successfully');
   } catch (e) {
-    console.log('❌ Webhook error:', e);
+    console.log(' Webhook error:', e);
   }
 });
 
