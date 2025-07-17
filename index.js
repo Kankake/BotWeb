@@ -19,7 +19,7 @@ const path = require('path');
 const os = require('os');
 const mysql = require("mysql2");
  
-const connection = mysql.createConnection({
+const pool = mysql.createPool({
     host: "459fa9d9406dcef02c7cbfca.twc1.net",
     user: "gen_user",
     password: "6_$-(bJ8,hI;jw",
@@ -28,8 +28,12 @@ const connection = mysql.createConnection({
     ssl: {
         ca: fs.readFileSync(path.join(os.homedir(), '.cloud-certs', 'root.crt'), 'utf-8'),
         rejectUnauthorized: true
-    }
+    },
+    connectionLimit: 10,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
 });
+
 
 // Add this after the connection creation
 connection.on('error', (err) => {
@@ -46,10 +50,6 @@ try {
 
 let schedules = {}; // глобальная переменная
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
 
 
 
