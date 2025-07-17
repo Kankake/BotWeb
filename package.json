@@ -1,12 +1,9 @@
 {
-  "name": "tg-miniapp",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "index.js",
+  "name": "levita-frontend",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
-  },
+    "build": "cp -r public dist/",
+    "start": "echo 'Static build complete'"
+  }
   "dependencies": {
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
