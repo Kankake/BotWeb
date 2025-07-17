@@ -35,26 +35,19 @@ const WEBHOOK_PATH = '/tg-webhook';
 
 // MySQL connection using correct env variable names
 let pool = null;
-if (process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_PASSWORD && process.env.MYSQL_DBNAME) {
-  try {
-    pool = mysql.createPool({
-      host: process.env.MYSQL_HOST,
-      user: process.env.MYSQL_USER,
-      password: process.env.MYSQL_PASSWORD,
-      database: process.env.MYSQL_DBNAME,
-      port: process.env.MYSQL_PORT || 3306,
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-      acquireTimeout: 60000,
-      timeout: 60000,
-    });
-    console.log('✅ MySQL pool created successfully');
-  } catch (err) {
-    console.error('❌ MySQL pool creation error:', err);
-  }
+if (process.env.MYSQL_HOST) {
+  pool = mysql.createPool({
+    host:     process.env.MYSQL_HOST,
+    user:     process.env.MYSQL_USER,
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DBNAME,
+    port:     process.env.MYSQL_PORT || 3306,
+    // пустой объект даёт команду инициировать TLS-рукопожатие
+    ssl: {}
+  })
+  console.log('✅ MySQL pool created with SSL negotiation')
 } else {
-  console.log('⚠️ MySQL credentials not found, using memory storage');
+  console.log('⚠️ No MySQL config, using in-memory storage')
 }
 
 let schedules = {}; // глобальная переменная
