@@ -11,13 +11,7 @@ import mysql from 'mysql2/promise';
 dotenv.config();
 
 console.log('🚀 Bot starting up...');
-console.log('Environment:', {
-  PORT: process.env.PORT,
-  WEBHOOK_PATH: '/tg-webhook',
-  WEBAPP_URL: process.env.WEBAPP_URL,
-  DB_HOST: process.env.DB_HOST,
-  DB_NAME: process.env.DB_NAME
-});
+console.log('Server starting on port', process.env.PORT || 3000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,23 +26,24 @@ const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
-// MySQL connection
-let pool;
-try {
-  pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  });
-  console.log('✅ MySQL pool created');
-} catch (err) {
-  console.error('❌ MySQL pool creation error:', err);
+// MySQL connection (optional)
+let pool = null;
+if (process.env.DB_HOST && process.env.DB_USER && process.env.DB_PASSWORD && process.env.DB_NAME) {
+  try {
+    pool = mysql.createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      port: process.env.DB_PORT || 3306,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+    });
+    console.log('✅ MySQL pool created');
+  } catch (err) {
+    console.error('❌ MySQL pool creation error:', err);
+  }
 }
 
 let schedules = {}; // глобальная переменная
@@ -59,22 +54,25 @@ const awaitingBroadcast = new Set();
 const pendingReminders = new Map();
 const pendingBookings = new Map();
 
+// In-memory storage as fallback
+const users = new Map();
+const userNames = new Map();
+
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
   process.exit(1);
 }
 
-// Создание таблиц при запуске
+// Database functions with fallback to memory
 async function initDatabase() {
   if (!pool) {
-    console.log('⚠️ Database pool not available, skipping initialization');
+    console.log('⚠️ No database configured, using memory storage');
     return;
   }
   
   try {
-    console.log('🔄 Initializing database tables...');
+    console.log('🔄 Initializing MySQL database tables...');
     
-    // Таблица для расписаний
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS schedules (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -84,7 +82,6 @@ async function initDatabase() {
       )
     `);
     
-    // Таблица для пользователей бота
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS bot_users (
         user_id BIGINT PRIMARY KEY,
@@ -94,7 +91,6 @@ async function initDatabase() {
       )
     `);
     
-    // Таблица для пользовательских имен
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS user_names (
         chat_id BIGINT PRIMARY KEY,
@@ -103,138 +99,150 @@ async function initDatabase() {
       )
     `);
     
-    console.log('✅ Database tables initialized');
-    
-    // Загружаем расписания
+    console.log('✅ MySQL database tables initialized');
     schedules = await loadSchedules();
     
   } catch (err) {
     console.error('❌ Database initialization error:', err);
+    console.log('⚠️ Falling back to memory storage');
+    pool = null;
   }
 }
 
-// Функции для работы с пользователями
 async function addUser(userId, firstName, username) {
-  if (!pool) return;
-  
-  try {
-    await pool.execute(
-      'INSERT INTO bot_users (user_id, first_name, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), username = VALUES(username)',
-      [userId, firstName || '', username || '']
-    );
-    console.log(`👤 User added/updated: ${userId}`);
-  } catch (err) {
-    console.error('❌ Failed to add user:', err);
+  if (pool) {
+    try {
+      await pool.execute(
+        'INSERT INTO bot_users (user_id, first_name, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), username = VALUES(username)',
+        [userId, firstName || '', username || '']
+      );
+      console.log(`👤 User added/updated in DB: ${userId}`);
+      return;
+    } catch (err) {
+      console.error('❌ Failed to add user to DB:', err);
+    }
   }
+  
+  // Fallback to memory
+  users.set(userId, { firstName, username, addedAt: new Date() });
+  console.log(`👤 User added/updated in memory: ${userId}`);
 }
 
 async function getUsersCount() {
-  if (!pool) return 0;
-  
-  try {
-    const [rows] = await pool.execute('SELECT COUNT(*) as count FROM bot_users');
-    return parseInt(rows[0].count);
-  } catch (err) {
-    console.error('❌ Failed to get users count:', err);
-    return 0;
+  if (pool) {
+    try {
+      const [rows] = await pool.execute('SELECT COUNT(*) as count FROM bot_users');
+      return parseInt(rows[0].count);
+    } catch (err) {
+      console.error('❌ Failed to get users count from DB:', err);
+    }
   }
+  
+  return users.size;
 }
 
 async function getAllUsers() {
-  if (!pool) return [];
-  
-  try {
-    const [rows] = await pool.execute('SELECT user_id FROM bot_users');
-    return rows.map(row => row.user_id);
-  } catch (err) {
-    console.error('❌ Failed to get all users:', err);
-    return [];
+  if (pool) {
+    try {
+      const [rows] = await pool.execute('SELECT user_id FROM bot_users');
+      return rows.map(row => row.user_id);
+    } catch (err) {
+      console.error('❌ Failed to get all users from DB:', err);
+    }
   }
+  
+  return Array.from(users.keys());
 }
 
 async function removeUser(userId) {
-  if (!pool) return;
-  
-  try {
-    await pool.execute('DELETE FROM bot_users WHERE user_id = ?', [userId]);
-    console.log(`👤 User removed: ${userId}`);
-  } catch (err) {
-    console.error('❌ Failed to remove user:', err);
+  if (pool) {
+    try {
+      await pool.execute('DELETE FROM bot_users WHERE user_id = ?', [userId]);
+      console.log(`👤 User removed from DB: ${userId}`);
+      return;
+    } catch (err) {
+      console.error('❌ Failed to remove user from DB:', err);
+    }
   }
+  
+  users.delete(userId);
+  userNames.delete(userId);
+  console.log(`👤 User removed from memory: ${userId}`);
 }
 
-// Функции для работы с именами пользователей
 async function setUserName(chatId, name) {
-  if (!pool) return;
-  
-  try {
-    await pool.execute(
-      'INSERT INTO user_names (chat_id, custom_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE custom_name = VALUES(custom_name), updated_at = CURRENT_TIMESTAMP',
-      [chatId, name]
-    );
-  } catch (err) {
-    console.error('❌ Failed to set user name:', err);
+  if (pool) {
+    try {
+      await pool.execute(
+        'INSERT INTO user_names (chat_id, custom_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE custom_name = VALUES(custom_name), updated_at = CURRENT_TIMESTAMP',
+        [chatId, name]
+      );
+      return;
+    } catch (err) {
+      console.error('❌ Failed to set user name in DB:', err);
+    }
   }
+  
+  userNames.set(chatId, name);
 }
 
 async function getUserName(chatId) {
-  if (!pool) return null;
-  
-  try {
-    const [rows] = await pool.execute('SELECT custom_name FROM user_names WHERE chat_id = ?', [chatId]);
-    return rows[0]?.custom_name || null;
-  } catch (err) {
-    console.error('❌ Failed to get user name:', err);
-    return null;
+  if (pool) {
+    try {
+      const [rows] = await pool.execute('SELECT custom_name FROM user_names WHERE chat_id = ?', [chatId]);
+      return rows[0]?.custom_name || null;
+    } catch (err) {
+      console.error('❌ Failed to get user name from DB:', err);
+    }
   }
+  
+  return userNames.get(chatId) || null;
 }
 
-// Функции для работы с расписанием
 async function saveSchedules(schedulesData) {
-  if (!pool) {
-    schedules = schedulesData;
-    console.log('✅ Schedules saved to memory (no database)');
-    return;
+  if (pool) {
+    try {
+      await pool.execute('DELETE FROM schedules');
+      
+      for (const [address, scheduleArray] of Object.entries(schedulesData)) {
+        await pool.execute(
+          'INSERT INTO schedules (address, schedule_data) VALUES (?, ?)',
+          [address, JSON.stringify(scheduleArray)]
+        );
+      }
+      console.log('✅ Schedules saved to MySQL database');
+      return;
+    } catch (err) {
+      console.error('❌ Failed to save schedules to DB:', err);
+    }
   }
   
-  try {
-    // Очищаем старые данные
-    await pool.execute('DELETE FROM schedules');
-    
-    // Сохраняем новые данные
-    for (const [address, scheduleArray] of Object.entries(schedulesData)) {
-      await pool.execute(
-        'INSERT INTO schedules (address, schedule_data) VALUES (?, ?)',
-        [address, JSON.stringify(scheduleArray)]
-      );
-    }
-    console.log('✅ Schedules saved to database');
-  } catch (err) {
-    console.error('❌ Failed to save schedules:', err);
-    // Fallback to memory
-    schedules = schedulesData;
-    console.log('✅ Schedules saved to memory (fallback)');
-  }
+  schedules = schedulesData;
+  console.log('✅ Schedules saved to memory');
 }
 
 async function loadSchedules() {
-  if (!pool) return {};
-  
-  try {
-    const [rows] = await pool.execute('SELECT address, schedule_data FROM schedules');
-    const loadedSchedules = {};
-    
-    for (const row of rows) {
-      loadedSchedules[row.address] = JSON.parse(row.schedule_data);
+  if (pool) {
+    try {
+      const [rows] = await pool.execute('SELECT address, schedule_data FROM schedules');
+      const loadedSchedules = {};
+      
+      for (const row of rows) {
+        loadedSchedules[row.address] = JSON.parse(row.schedule_data);
+      }
+      
+      console.log(`✅ Loaded schedules for ${Object.keys(loadedSchedules).length} addresses from DB`);
+      return loadedSchedules;
+    } catch (err) {
+      console.error('❌ Failed to load schedules from DB:', err);
     }
-    
-    console.log(`✅ Loaded schedules for ${Object.keys(loadedSchedules).length} addresses`);
-    return loadedSchedules;
-  } catch (err) {
-    console.error('❌ Failed to load schedules:', err);
-    return {};
   }
+  
+  return {};
 }
+
+// Initialize database
+await initDatabase();
 
 // Функция проверки на админа
 async function isAdminUser(ctx) {
@@ -247,17 +255,11 @@ const bot = new Telegraf(BOT_TOKEN);
 // Add error handler
 bot.catch((err, ctx) => {
   console.error('❌ Bot error:', err);
-  console.error('Context:', ctx.update);
 });
 
 // Add debug middleware
 bot.use((ctx, next) => {
-  console.log('📨 Received update:', {
-    type: ctx.updateType,
-    from: ctx.from?.id,
-    chat: ctx.chat?.id,
-    text: ctx.message?.text
-  });
+  console.log('📨 Received:', ctx.updateType, 'from:', ctx.from?.id);
   return next();
 });
 
@@ -275,21 +277,16 @@ async function sendMessageToUser(userId, message) {
   }
 }
 
-// НОВАЯ функция для обновления расписания из буфера
+// Function to update schedule from buffer
 async function updateScheduleFromBuffer(buffer) {
   try {
     console.log('📊 Starting to process Excel buffer...');
     
     const workbook = XLSX.read(buffer, { type: 'buffer' });
-    console.log('📋 Workbook sheets:', workbook.SheetNames);
-    
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
     console.log('📊 Raw data from Excel:', data.length, 'rows');
-    if (data.length > 0) {
-      console.log('📊 First row sample:', data[0]);
-    }
 
     const newSchedules = {};
     let processedRows = 0;
@@ -298,7 +295,7 @@ async function updateScheduleFromBuffer(buffer) {
     data.forEach((row, index) => {
       try {
         if (!row.date || !row.time || !row.direction || !row.address) {
-          console.log(`⚠️ Row ${index + 1} missing required fields:`, row);
+          console.log(`⚠️ Row ${index + 1} missing required fields`);
           errorRows++;
           return;
         }
@@ -335,15 +332,9 @@ async function updateScheduleFromBuffer(buffer) {
         processedRows++;
         
       } catch (error) {
-        console.error(`❌ Error processing row ${index + 1}:`, error, row);
+        console.error(`❌ Error processing row ${index + 1}:`, error);
         errorRows++;
       }
-    });
-
-    console.log('📊 Processing complete:', {
-      processedRows,
-      errorRows,
-      addresses: Object.keys(newSchedules).length
     });
 
     await saveSchedules(newSchedules);
@@ -351,11 +342,7 @@ async function updateScheduleFromBuffer(buffer) {
     
     console.log('✅ Schedules updated successfully');
 
-    return {
-      newSchedules,
-      processedRows,
-      errorRows
-    };
+    return { newSchedules, processedRows, errorRows };
     
   } catch (error) {
     console.error('❌ Error in updateScheduleFromBuffer:', error);
@@ -383,7 +370,7 @@ try {
   });
 
 } catch (err) {
-  console.log('Command menu setup:', err);
+  console.log('Command menu setup error:', err);
 }
 
 bot.start(async ctx => {
@@ -395,6 +382,7 @@ bot.start(async ctx => {
   await addUser(userId, firstName, username);
   await setUserName(chatId, firstName);
   
+  // Clear existing reminders
   if (pendingReminders.has(chatId)) {
     const {t3, t15, t24 } = pendingReminders.get(chatId);
     clearTimeout(t3);
@@ -402,6 +390,7 @@ bot.start(async ctx => {
     clearTimeout(t24);
   }
   
+  // Set new reminders
   const t15 = setTimeout(() => {
     bot.telegram.sendMessage(
       chatId,
