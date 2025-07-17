@@ -7,6 +7,7 @@ import { Telegraf, Markup } from 'telegraf';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
 import mysql from 'mysql2/promise';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -20,8 +21,12 @@ console.log('Environment check:', {
   ADMIN_CHAT_ID: process.env.ADMIN_CHAT_ID ? 'SET' : 'NOT SET'
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { fileURLToPath } from 'url'
+import { dirname, join, resolve } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
 
 const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
 const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
@@ -39,26 +44,22 @@ let pool
 if (process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_PASSWORD && process.env.MYSQL_DBNAME) {
   try {
     // полный путь к сертификату внутри контейнера
-    const caPath = path.resolve(process.cwd(), 'ca.crt')
-
-    pool = mysql.createPool({
-      host:     process.env.MYSQL_HOST,
-      user:     process.env.MYSQL_USER,
-      password: process.env.MYSQL_PASSWORD,
-      database: process.env.MYSQL_DBNAME,
-      port:     process.env.MYSQL_PORT || 3306,
-
-      // TLS-опции
-      ssl: {
-        ca: fs.readFileSync(caPath)
-      },
-
-      waitForConnections: true,
-      connectionLimit:    10,
-      queueLimit:         0,
-      acquireTimeout:     60000,
-      timeout:            60000
-    })
+    const caPath = resolve(__dirname, 'ca.crt')
+pool = mysql.createPool({
+  host:     process.env.MYSQL_HOST,
+  user:     process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DBNAME,
+  port:     process.env.MYSQL_PORT || 3306,
+  ssl: {
+    ca: fs.readFileSync(caPath)
+  },
+  waitForConnections: true,
+  connectionLimit:    10,
+  queueLimit:         0,
+  acquireTimeout:     60000,
+  timeout:            60000
+})
 
     console.log('✅ MySQL pool created successfully with SSL')
   } catch (err) {
