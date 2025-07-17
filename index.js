@@ -18,10 +18,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const mysql = require("mysql2");
-
+ 
 const connection = mysql.createConnection({
     host: "192.168.0.4",
-    user: "gen_user", 
+    user: "gen_user",
     password: "6_$-(bJ8,hI;jw",
     database: "default_db",
     port: 3306,
