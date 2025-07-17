@@ -33,21 +33,39 @@ const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
-// MySQL connection using correct env variable names
-let pool = null;
-if (process.env.MYSQL_HOST) {
-  pool = mysql.createPool({
-    host:     process.env.MYSQL_HOST,
-    user:     process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DBNAME,
-    port:     process.env.MYSQL_PORT || 3306,
-    // пустой объект даёт команду инициировать TLS-рукопожатие
-    ssl: {}
-  })
-  console.log('✅ MySQL pool created with SSL negotiation')
+// объявляем pool заранее
+let pool
+
+if (process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_PASSWORD && process.env.MYSQL_DBNAME) {
+  try {
+    // полный путь к сертификату внутри контейнера
+    const caPath = path.resolve(process.cwd(), 'ca.crt')
+
+    pool = mysql.createPool({
+      host:     process.env.MYSQL_HOST,
+      user:     process.env.MYSQL_USER,
+      password: process.env.MYSQL_PASSWORD,
+      database: process.env.MYSQL_DBNAME,
+      port:     process.env.MYSQL_PORT || 3306,
+
+      // TLS-опции
+      ssl: {
+        ca: fs.readFileSync(caPath)
+      },
+
+      waitForConnections: true,
+      connectionLimit:    10,
+      queueLimit:         0,
+      acquireTimeout:     60000,
+      timeout:            60000
+    })
+
+    console.log('✅ MySQL pool created successfully with SSL')
+  } catch (err) {
+    console.error('❌ MySQL pool creation error:', err)
+  }
 } else {
-  console.log('⚠️ No MySQL config, using in-memory storage')
+  console.log('⚠️ MySQL credentials not found, using memory storage')
 }
 
 let schedules = {}; // глобальная переменная
