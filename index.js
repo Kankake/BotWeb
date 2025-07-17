@@ -36,33 +36,6 @@ const WEBHOOK_PATH = '/tg-webhook';
 // объявляем pool заранее
 let pool
 
-if (process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_PASSWORD && process.env.MYSQL_DBNAME) {
-  try {
-    // полный путь к сертификату внутри контейнера
-    const caPath = resolve(__dirname, 'ca.crt')
-    pool = mysql.createPool({
-      host:     process.env.MYSQL_HOST,
-      user:     process.env.MYSQL_USER,
-      password: process.env.MYSQL_PASSWORD,
-      database: process.env.MYSQL_DBNAME,
-      port:     process.env.MYSQL_PORT || 3306,
-      ssl: {
-        ca: fs.readFileSync(caPath)
-      },
-      waitForConnections: true,
-      connectionLimit:    10,
-      queueLimit:         0,
-      acquireTimeout:     60000,
-      timeout:            60000
-    })
-
-    console.log('✅ MySQL pool created successfully with SSL')
-  } catch (err) {
-    console.error('❌ MySQL pool creation error:', err)
-  }
-} else {
-  console.log('⚠️ MySQL credentials not found, using memory storage')
-}
 
 let schedules = {}; // глобальная переменная
 
@@ -834,15 +807,6 @@ bot.on('callback_query', async (ctx) => {
   await addUser(ctx.from.id, ctx.from.first_name, ctx.from.username);
 });
 
-// Express App
-const app = express();
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// если кто-то зайдёт на / — отдадим index.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'))
-});
 
 // Endpoints
 app.post('/slots', (req, res) => {
