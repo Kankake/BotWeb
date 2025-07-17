@@ -546,23 +546,20 @@ bot.on('text', async (ctx) => {
   
   // Добавляем обработку команды users_count с упоминанием
   if (text.startsWith(`/users_count@${botUsername}`)) {
-  console.log('📝 Команда users_count с упоминанием получена от:', ctx.chat.id);
-  console.log('Using DB URL:', process.env.DATABASE_URL);
+    console.log('📝 Команда users_count с упоминанием получена от:', ctx.chat.id);
 
-  if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    if (!(await isAdminUser(ctx))) {
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
+
+    try {
+      const count = await getUsersCount();
+      return ctx.reply(`👥 Всего пользователей бота: ${count}`);
+    } catch (err) {
+      console.error('❌ Failed to get user count:', err);
+      return ctx.reply('⚠️ Ошибка при получении количества пользователей');
+    }
   }
-
-  try {
-    const result = await pool.query('SELECT COUNT(*) FROM bot_users');
-    const count = result.rows[0].count;
-    return ctx.reply(`👥 Всего пользователей бота: ${count}`);
-  } catch (err) {
-    console.error('❌ Failed to get user count:', err);
-    return ctx.reply('⚠️ Ошибка при получении количества пользователей');
-  }
-}
-
   
   // Добавляем обработку команды broadcast с упоминанием
   if (text.startsWith(`/broadcast@${botUsername}`)) {
@@ -596,48 +593,48 @@ bot.on('text', async (ctx) => {
   
   // Обработка рассылки
   if (awaitingBroadcast.has(ctx.chat.id)) {
-     if (!(await isAdminUser(ctx))) {
-       awaitingBroadcast.delete(ctx.chat.id);
-       return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-     }
+    if (!(await isAdminUser(ctx))) {
+      awaitingBroadcast.delete(ctx.chat.id);
+      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+    }
     
-     const broadcastMessage = text;
-     awaitingBroadcast.delete(ctx.chat.id);
+    const broadcastMessage = text;
+    awaitingBroadcast.delete(ctx.chat.id);
     
-     await ctx.reply('📤 Начинаю рассылку...');
+    await ctx.reply('📤 Начинаю рассылку...');
     
-     let successCount = 0;
-     let errorCount = 0;
-     
-     const allUsers = await getAllUsers();
+    let successCount = 0;
+    let errorCount = 0;
     
-     for (const userId of allUsers) {
-       try {
-         await sendMessageToUser(userId, broadcastMessage);
-         successCount++;
-         await new Promise(resolve => setTimeout(resolve, 50));
-       } catch (error) {
-         errorCount++;
-         console.error(`Failed to send message to user ${userId}:`, error.message);
+    const allUsers = await getAllUsers();
+    
+    for (const userId of allUsers) {
+      try {
+        await sendMessageToUser(userId, broadcastMessage);
+        successCount++;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (error) {
+        errorCount++;
+        console.error(`Failed to send message to user ${userId}:`, error.message);
         
-         if (error.message.includes('blocked') || error.message.includes('user not found') || error.message.includes('chat not found')) {
-           await removeUser(userId);
-         }
-       }
-     }
+        if (error.message.includes('blocked') || error.message.includes('user not found') || error.message.includes('chat not found')) {
+          await removeUser(userId);
+        }
+      }
+    }
     
-     const finalCount = await getUsersCount();
-     await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${finalCount}`);
-     return;
-   }
-  });
+    const finalCount = await getUsersCount();
+    await ctx.reply(`✅ Рассылка завершена!\n📊 Успешно отправлено: ${successCount}\n❌ Ошибок: ${errorCount}\n👥 Активных пользователей: ${finalCount}`);
+    return;
+  }
+});
 
 bot.command('contacts', ctx => {
   ctx.reply(
     `Связь с ресепшн студии:
-  Свободы 6 — 8-928-00-00-000
-  Видова 210Д — 8-928-00-00-000
-  Дзержинского 211/2 — 8-928-00-00-000`
+  Свободы 6 — +7-928-40-85-968
+  Видова 210Д — +7-993-32-12-000
+  Дзержинского 211/2 — +7-993-30-10-137`
   );
 });
 
@@ -676,17 +673,18 @@ bot.command('cancel_schedule', async (ctx) => {
 
 // Команда для просмотра количества пользователей
 bot.command('users_count', async (ctx) => {
+  if (!(await isAdminUser(ctx))) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+  }
+  
   try {
-    const res = await pool.query('SELECT COUNT(*) FROM bot_users');
-    const count = parseInt(res.rows[0].count, 10);
+    const count = await getUsersCount();
     return ctx.reply(`👥 Всего пользователей бота: ${count}`);
   } catch (err) {
     console.error('❌ Failed to get users count:', err);
     return ctx.reply('Ошибка при получении количества пользователей.');
   }
 });
-
-
 
 // Команда для рассылки
 bot.command('broadcast', async (ctx) => {
@@ -818,7 +816,6 @@ bot.on('contact', async ctx => {
   await ctx.reply('Спасибо! Мы перезвоним вам в ближайшее время.', Markup.removeKeyboard());
 });
 
-
 // Добавляем обработчики для всех остальных действий пользователей
 bot.hears(/.*/, async (ctx) => {
   // Добавляем пользователя при любом сообщении
@@ -861,8 +858,6 @@ app.post('/slots', (req, res) => {
   res.json({ ok: true, slots });
 });
 
-
-
 // Добавляем новый endpoint для получения имени пользователя
 app.get('/user-name/:telegram_id', async (req, res) => {
   const telegramId = parseInt(req.params.telegram_id);
@@ -873,7 +868,6 @@ app.get('/user-name/:telegram_id', async (req, res) => {
     name: userName 
   });
 });
-
 
 app.post('/submit', async (req, res) => {
   try {
