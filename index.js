@@ -981,13 +981,13 @@ app.listen(PORT, async () => {
   console.log(` Server starting on port ${PORT}`);
   try {
     await bot.telegram.deleteWebhook();
-    console.log(' Old webhook deleted');
     await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-    console.log(' New webhook set successfully');
   } catch (e) {
     console.log(' Webhook error:', e);
   }
 });
+
+
 
 // Add this after your webhook setup
 bot.catch((err, ctx) => {
