@@ -3,7 +3,6 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import fs from 'fs/promises';
 import { Telegraf, Markup } from 'telegraf';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
@@ -15,36 +14,66 @@ console.log('🚀 Bot starting up...');
 console.log('Environment:', {
   PORT: process.env.PORT,
   WEBHOOK_PATH: '/tg-webhook',
-  WEBAPP_URL: process.env.WEBAPP_URL
+  WEBAPP_URL: process.env.WEBAPP_URL,
+  DB_HOST: process.env.DB_HOST,
+  DB_NAME: process.env.DB_NAME
 });
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
+const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
+
+// Load config from .env
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+const WEBAPP_URL = process.env.WEBAPP_URL;
+const PORT = process.env.PORT || 3000;
+const WEBHOOK_PATH = '/tg-webhook';
+
 // MySQL connection
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+let pool;
+try {
+  pool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+  console.log('✅ MySQL pool created');
+} catch (err) {
+  console.error('❌ MySQL pool creation error:', err);
+}
 
 let schedules = {}; // глобальная переменная
 
-// Test database connection and load schedules
-pool.getConnection()
-  .then(async (connection) => {
-    console.log('✅ MySQL connected!');
-    connection.release();
-    schedules = await loadSchedules(); // ← загружаем расписания
-  })
-  .catch(err => console.error('❌ MySQL connection error:', err));
+const awaitingScheduleUpload = new Set();
+const awaitingCustomName = new Set();
+const awaitingBroadcast = new Set();
+const pendingReminders = new Map();
+const pendingBookings = new Map();
+
+if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
+  console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
+  process.exit(1);
+}
 
 // Создание таблиц при запуске
 async function initDatabase() {
+  if (!pool) {
+    console.log('⚠️ Database pool not available, skipping initialization');
+    return;
+  }
+  
   try {
+    console.log('🔄 Initializing database tables...');
+    
     // Таблица для расписаний
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS schedules (
@@ -75,6 +104,10 @@ async function initDatabase() {
     `);
     
     console.log('✅ Database tables initialized');
+    
+    // Загружаем расписания
+    schedules = await loadSchedules();
+    
   } catch (err) {
     console.error('❌ Database initialization error:', err);
   }
@@ -82,6 +115,8 @@ async function initDatabase() {
 
 // Функции для работы с пользователями
 async function addUser(userId, firstName, username) {
+  if (!pool) return;
+  
   try {
     await pool.execute(
       'INSERT INTO bot_users (user_id, first_name, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), username = VALUES(username)',
@@ -94,6 +129,8 @@ async function addUser(userId, firstName, username) {
 }
 
 async function getUsersCount() {
+  if (!pool) return 0;
+  
   try {
     const [rows] = await pool.execute('SELECT COUNT(*) as count FROM bot_users');
     return parseInt(rows[0].count);
@@ -104,6 +141,8 @@ async function getUsersCount() {
 }
 
 async function getAllUsers() {
+  if (!pool) return [];
+  
   try {
     const [rows] = await pool.execute('SELECT user_id FROM bot_users');
     return rows.map(row => row.user_id);
@@ -114,6 +153,8 @@ async function getAllUsers() {
 }
 
 async function removeUser(userId) {
+  if (!pool) return;
+  
   try {
     await pool.execute('DELETE FROM bot_users WHERE user_id = ?', [userId]);
     console.log(`👤 User removed: ${userId}`);
@@ -124,6 +165,8 @@ async function removeUser(userId) {
 
 // Функции для работы с именами пользователей
 async function setUserName(chatId, name) {
+  if (!pool) return;
+  
   try {
     await pool.execute(
       'INSERT INTO user_names (chat_id, custom_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE custom_name = VALUES(custom_name), updated_at = CURRENT_TIMESTAMP',
@@ -135,6 +178,8 @@ async function setUserName(chatId, name) {
 }
 
 async function getUserName(chatId) {
+  if (!pool) return null;
+  
   try {
     const [rows] = await pool.execute('SELECT custom_name FROM user_names WHERE chat_id = ?', [chatId]);
     return rows[0]?.custom_name || null;
@@ -146,6 +191,12 @@ async function getUserName(chatId) {
 
 // Функции для работы с расписанием
 async function saveSchedules(schedulesData) {
+  if (!pool) {
+    schedules = schedulesData;
+    console.log('✅ Schedules saved to memory (no database)');
+    return;
+  }
+  
   try {
     // Очищаем старые данные
     await pool.execute('DELETE FROM schedules');
@@ -160,60 +211,34 @@ async function saveSchedules(schedulesData) {
     console.log('✅ Schedules saved to database');
   } catch (err) {
     console.error('❌ Failed to save schedules:', err);
-    throw err;
+    // Fallback to memory
+    schedules = schedulesData;
+    console.log('✅ Schedules saved to memory (fallback)');
   }
 }
 
 async function loadSchedules() {
+  if (!pool) return {};
+  
   try {
     const [rows] = await pool.execute('SELECT address, schedule_data FROM schedules');
-    const schedules = {};
+    const loadedSchedules = {};
     
     for (const row of rows) {
-      schedules[row.address] = JSON.parse(row.schedule_data);
+      loadedSchedules[row.address] = JSON.parse(row.schedule_data);
     }
     
-    console.log(`✅ Loaded schedules for ${Object.keys(schedules).length} addresses`);
-    return schedules;
+    console.log(`✅ Loaded schedules for ${Object.keys(loadedSchedules).length} addresses`);
+    return loadedSchedules;
   } catch (err) {
     console.error('❌ Failed to load schedules:', err);
     return {};
   }
 }
 
-// Инициализируем базу данных при запуске
-await initDatabase();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
-const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
-
-// Load config from .env
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
-const WEBAPP_URL = process.env.WEBAPP_URL;
-const PORT = process.env.PORT || 3000;
-const WEBHOOK_PATH = '/tg-webhook';
-
-const awaitingScheduleUpload = new Set();
-const awaitingCustomName = new Set();
-const awaitingBroadcast = new Set();
-const pendingReminders = new Map();
-const pendingBookings = new Map();
-
-if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
-  console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
-  process.exit(1);
-}
-
 // Функция проверки на админа
 async function isAdminUser(ctx) {
-  if (ctx.chat.id.toString() === ADMIN_CHAT_ID) {
-    return true;
-  }
-  return false;
+  return ctx.chat.id.toString() === ADMIN_CHAT_ID;
 }
 
 // Initialize bot
@@ -235,44 +260,6 @@ bot.use((ctx, next) => {
   });
   return next();
 });
-
-bot.command('check_data', async (ctx) => {
-  if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
-  
-  // Split data into smaller chunks
-  const data = JSON.stringify(schedules, null, 2);
-  const chunkSize = 4000; // Leave some buffer
-  
-  for (let i = 0; i < data.length; i += chunkSize) {
-    const chunk = data.slice(i, i + chunkSize);
-    await ctx.reply(chunk);
-  }
-});
-
-// Set up menu commands
-try {
-  // Команды для обычных пользователей
-  const publicCommands = [
-    { command: 'start', description: 'Начать заново' },
-    { command: 'contacts', description: 'Контакты студии' }
-  ];
-  await bot.telegram.setMyCommands(publicCommands);
-
-  // Команды для администраторов
-  const adminGroupCommands = [
-    { command: 'update_schedule', description: 'Обновить расписание' },
-    { command: 'cancel_schedule', description: 'Отменить загрузку расписания' },
-    { command: 'users_count', description: 'Количество пользователей' },
-    { command: 'broadcast', description: 'Рассылка сообщения' },
-    { command: 'check_schedules', description: 'Проверить расписания' }
-  ];
-  await bot.telegram.setMyCommands(adminGroupCommands, {
-    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
-  });
-
-} catch (err) {
-  console.log('Command menu setup:', err);
-}
 
 // Function to send a message to a user and handle blocked users
 async function sendMessageToUser(userId, message) {
@@ -374,6 +361,29 @@ async function updateScheduleFromBuffer(buffer) {
     console.error('❌ Error in updateScheduleFromBuffer:', error);
     throw error;
   }
+}
+
+// Set up menu commands
+try {
+  const publicCommands = [
+    { command: 'start', description: 'Начать заново' },
+    { command: 'contacts', description: 'Контакты студии' }
+  ];
+  await bot.telegram.setMyCommands(publicCommands);
+
+  const adminGroupCommands = [
+    { command: 'update_schedule', description: 'Обновить расписание' },
+    { command: 'cancel_schedule', description: 'Отменить загрузку расписания' },
+    { command: 'users_count', description: 'Количество пользователей' },
+    { command: 'broadcast', description: 'Рассылка сообщения' },
+    { command: 'check_schedules', description: 'Проверить расписания' }
+  ];
+  await bot.telegram.setMyCommands(adminGroupCommands, {
+    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
+  });
+
+} catch (err) {
+  console.log('Command menu setup:', err);
 }
 
 bot.start(async ctx => {
