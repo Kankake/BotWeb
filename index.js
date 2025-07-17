@@ -30,7 +30,7 @@ const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 const WEBAPP_URL = process.env.WEBAPP_URL;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 80;
 const WEBHOOK_PATH = '/tg-webhook';
 
 // объявляем pool заранее
