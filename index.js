@@ -11,7 +11,14 @@ import mysql from 'mysql2/promise';
 dotenv.config();
 
 console.log('🚀 Bot starting up...');
-console.log('Server starting on port', process.env.PORT || 3000);
+console.log('Environment check:', {
+  PORT: process.env.PORT,
+  WEBAPP_URL: process.env.WEBAPP_URL,
+  MYSQL_HOST: process.env.MYSQL_HOST,
+  MYSQL_DBNAME: process.env.MYSQL_DBNAME,
+  BOT_TOKEN: process.env.BOT_TOKEN ? 'SET' : 'NOT SET',
+  ADMIN_CHAT_ID: process.env.ADMIN_CHAT_ID ? 'SET' : 'NOT SET'
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -26,24 +33,28 @@ const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
-// MySQL connection (optional)
+// MySQL connection using correct env variable names
 let pool = null;
-if (process.env.DB_HOST && process.env.DB_USER && process.env.DB_PASSWORD && process.env.DB_NAME) {
+if (process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_PASSWORD && process.env.MYSQL_DBNAME) {
   try {
     pool = mysql.createPool({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      port: process.env.DB_PORT || 3306,
+      host: process.env.MYSQL_HOST,
+      user: process.env.MYSQL_USER,
+      password: process.env.MYSQL_PASSWORD,
+      database: process.env.MYSQL_DBNAME,
+      port: process.env.MYSQL_PORT || 3306,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
+      acquireTimeout: 60000,
+      timeout: 60000,
     });
-    console.log('✅ MySQL pool created');
+    console.log('✅ MySQL pool created successfully');
   } catch (err) {
     console.error('❌ MySQL pool creation error:', err);
   }
+} else {
+  console.log('⚠️ MySQL credentials not found, using memory storage');
 }
 
 let schedules = {}; // глобальная переменная
@@ -71,6 +82,11 @@ async function initDatabase() {
   }
   
   try {
+    console.log('🔄 Testing MySQL connection...');
+    const connection = await pool.getConnection();
+    console.log('✅ MySQL connection successful');
+    connection.release();
+    
     console.log('🔄 Initializing MySQL database tables...');
     
     await pool.execute(`
