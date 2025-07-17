@@ -18,21 +18,39 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const mysql = require("mysql2");
- 
-const pool = mysql.createPool({
-    host: "459fa9d9406dcef02c7cbfca.twc1.net",
-    user: "gen_user",
+
+const connection = mysql.createConnection({
+    host: "192.168.0.4",
+    user: "gen_user", 
     password: "6_$-(bJ8,hI;jw",
     database: "default_db",
     port: 3306,
     ssl: {
-        ca: fs.readFileSync(path.join(os.homedir(), '.cloud-certs', 'root.crt'), 'utf-8'),
-        rejectUnauthorized: true
-    },
-    connectionLimit: 10,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
+        rejectUnauthorized: false
+    }
 });
+
+// Add connection handler
+function handleDisconnect() {
+    connection.connect((err) => {
+        if(err) {
+            console.log('Database connection attempt:', err);
+            setTimeout(handleDisconnect, 2000);
+        } else {
+            console.log('✅ MySQL Connected!');
+        }
+    });
+
+    connection.on('error', (err) => {
+        if(err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+            handleDisconnect();
+        } else {
+            throw err;
+        }
+    });
+}
+
+handleDisconnect();
 
 
 // Add this after the connection creation
