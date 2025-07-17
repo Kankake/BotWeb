@@ -9,7 +9,6 @@ import fetch from 'node-fetch';
 import mysql from 'mysql2/promise';
 
 dotenv.config();
-let pool;
 
 console.log('🚀 Bot starting up...');
 console.log('Environment check:', {
@@ -31,27 +30,19 @@ const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 const WEBAPP_URL = process.env.WEBAPP_URL;
-if (WEBAPP_URL && !WEBAPP_URL.startsWith('http')) {
-  WEBAPP_URL = `https://${WEBAPP_URL}`;
-}
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
-
-if (MYSQL_HOST && MYSQL_USER && MYSQL_PASSWORD && MYSQL_DBNAME) {
+// MySQL connection using correct env variable names
+let pool = null;
+if (process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_PASSWORD && process.env.MYSQL_DBNAME) {
   try {
     pool = mysql.createPool({
-      host:     MYSQL_HOST,
-      user:     MYSQL_USER,
-      password: MYSQL_PASSWORD,
-      database: MYSQL_DBNAME,
-      port:     process.env.MYSQL_PORT || 3306,
-
-      // SSL-опции, чтобы не ловить ER_SECURE_TRANSPORT_REQUIRED
-      ssl: {
-        rejectUnauthorized: false
-      },
-
+      host: process.env.MYSQL_HOST,
+      user: process.env.MYSQL_USER,
+      password: process.env.MYSQL_PASSWORD,
+      database: process.env.MYSQL_DBNAME,
+      port: process.env.MYSQL_PORT || 3306,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
