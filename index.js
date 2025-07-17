@@ -7,178 +7,188 @@ import fs from 'fs/promises';
 import { Telegraf, Markup } from 'telegraf';
 import XLSX from 'xlsx';
 import fetch from 'node-fetch';
-import pkg from 'pg';
-const { Pool } = pkg;
+import mysql from 'mysql2/promise';
 
 dotenv.config();
 
-// console.log('DATABASE_URL:', process.env.DATABASE_URL);
-// console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('🚀 Bot starting up...');
+console.log('Environment:', {
+  PORT: process.env.PORT,
+  WEBHOOK_PATH: '/tg-webhook',
+  WEBAPP_URL: process.env.WEBAPP_URL
+});
 
-// const pool = new Pool({
-//   connectionString: process.env.DATABASE_URL,
-//   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-// });
+// MySQL connection
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
-// let schedules = {}; // глобальная переменная
+let schedules = {}; // глобальная переменная
 
-// pool.connect()
-//   .then(async () => {
-//     console.log('✅ DB connected!');
-//     schedules = await loadSchedules(); // ← загружаем расписания
-//   })
-//   .catch(err => console.error('❌ DB connection error:', err));
+// Test database connection and load schedules
+pool.getConnection()
+  .then(async (connection) => {
+    console.log('✅ MySQL connected!');
+    connection.release();
+    schedules = await loadSchedules(); // ← загружаем расписания
+  })
+  .catch(err => console.error('❌ MySQL connection error:', err));
 
-
-
-// // Создание таблиц при запуске
-// async function initDatabase() {
-//   try {
-//     // Таблица для расписаний
-//     await pool.query(`
-//       CREATE TABLE IF NOT EXISTS schedules (
-//         id SERIAL PRIMARY KEY,
-//         address VARCHAR(255) NOT NULL,
-//         schedule_data JSONB NOT NULL,
-//         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-//       )
-//     `);
+// Создание таблиц при запуске
+async function initDatabase() {
+  try {
+    // Таблица для расписаний
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS schedules (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        address VARCHAR(255) NOT NULL,
+        schedule_data JSON NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
     
-//     // Таблица для пользователей бота
-//     await pool.query(`
-//       CREATE TABLE IF NOT EXISTS bot_users (
-//         user_id BIGINT PRIMARY KEY,
-//         first_name VARCHAR(255),
-//         username VARCHAR(255),
-//         added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-//       )
-//     `);
+    // Таблица для пользователей бота
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS bot_users (
+        user_id BIGINT PRIMARY KEY,
+        first_name VARCHAR(255),
+        username VARCHAR(255),
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
-//     // Таблица для пользовательских имен
-//     await pool.query(`
-//       CREATE TABLE IF NOT EXISTS user_names (
-//         chat_id BIGINT PRIMARY KEY,
-//         custom_name VARCHAR(255) NOT NULL,
-//         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-//       )
-//     `);
+    // Таблица для пользовательских имен
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS user_names (
+        chat_id BIGINT PRIMARY KEY,
+        custom_name VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
     
-//     console.log('✅ Database tables initialized');
-//   } catch (err) {
-//     console.error('❌ Database initialization error:', err);
-//   }
-// }
+    console.log('✅ Database tables initialized');
+  } catch (err) {
+    console.error('❌ Database initialization error:', err);
+  }
+}
 
-// // Функции для работы с пользователями
-// async function addUser(userId, firstName, username) {
-//   try {
-//     await pool.query(
-//       'INSERT INTO bot_users (user_id, first_name, username) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING',
-//       [userId, firstName || '', username || '']
-//     );
-//     console.log(`👤 User added/updated: ${userId}`);
-//   } catch (err) {
-//     console.error('❌ Failed to add user:', err);
-//   }
-// }
+// Функции для работы с пользователями
+async function addUser(userId, firstName, username) {
+  try {
+    await pool.execute(
+      'INSERT INTO bot_users (user_id, first_name, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), username = VALUES(username)',
+      [userId, firstName || '', username || '']
+    );
+    console.log(`👤 User added/updated: ${userId}`);
+  } catch (err) {
+    console.error('❌ Failed to add user:', err);
+  }
+}
 
-// async function getUsersCount() {
-//   try {
-//     const result = await pool.query('SELECT COUNT(*) FROM bot_users');
-//     return parseInt(result.rows[0].count);
-//   } catch (err) {
-//     console.error('❌ Failed to get users count:', err);
-//     return 0;
-//   }
-// }
+async function getUsersCount() {
+  try {
+    const [rows] = await pool.execute('SELECT COUNT(*) as count FROM bot_users');
+    return parseInt(rows[0].count);
+  } catch (err) {
+    console.error('❌ Failed to get users count:', err);
+    return 0;
+  }
+}
 
-// async function getAllUsers() {
-//   try {
-//     const result = await pool.query('SELECT user_id FROM bot_users');
-//     return result.rows.map(row => row.user_id);
-//   } catch (err) {
-//     console.error('❌ Failed to get all users:', err);
-//     return [];
-//   }
-// }
+async function getAllUsers() {
+  try {
+    const [rows] = await pool.execute('SELECT user_id FROM bot_users');
+    return rows.map(row => row.user_id);
+  } catch (err) {
+    console.error('❌ Failed to get all users:', err);
+    return [];
+  }
+}
 
-// async function removeUser(userId) {
-//   try {
-//     await pool.query('DELETE FROM bot_users WHERE user_id = $1', [userId]);
-//     console.log(`👤 User removed: ${userId}`);
-//   } catch (err) {
-//     console.error('❌ Failed to remove user:', err);
-//   }
-// }
+async function removeUser(userId) {
+  try {
+    await pool.execute('DELETE FROM bot_users WHERE user_id = ?', [userId]);
+    console.log(`👤 User removed: ${userId}`);
+  } catch (err) {
+    console.error('❌ Failed to remove user:', err);
+  }
+}
 
-// // Функции для работы с именами пользователей
-// async function setUserName(chatId, name) {
-//   try {
-//     await pool.query(
-//       'INSERT INTO user_names (chat_id, custom_name) VALUES ($1, $2) ON CONFLICT (chat_id) DO UPDATE SET custom_name = $2, updated_at = CURRENT_TIMESTAMP',
-//       [chatId, name]
-//     );
-//   } catch (err) {
-//     console.error('❌ Failed to set user name:', err);
-//   }
-// }
+// Функции для работы с именами пользователей
+async function setUserName(chatId, name) {
+  try {
+    await pool.execute(
+      'INSERT INTO user_names (chat_id, custom_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE custom_name = VALUES(custom_name), updated_at = CURRENT_TIMESTAMP',
+      [chatId, name]
+    );
+  } catch (err) {
+    console.error('❌ Failed to set user name:', err);
+  }
+}
 
-// async function getUserName(chatId) {
-//   try {
-//     const result = await pool.query('SELECT custom_name FROM user_names WHERE chat_id = $1', [chatId]);
-//     return result.rows[0]?.custom_name || null;
-//   } catch (err) {
-//     console.error('❌ Failed to get user name:', err);
-//     return null;
-//   }
-// }
+async function getUserName(chatId) {
+  try {
+    const [rows] = await pool.execute('SELECT custom_name FROM user_names WHERE chat_id = ?', [chatId]);
+    return rows[0]?.custom_name || null;
+  } catch (err) {
+    console.error('❌ Failed to get user name:', err);
+    return null;
+  }
+}
 
-// // Функции для работы с расписанием
-// async function saveSchedules(schedulesData) {
-//   try {
-//     // Очищаем старые данные
-//     await pool.query('DELETE FROM schedules');
+// Функции для работы с расписанием
+async function saveSchedules(schedulesData) {
+  try {
+    // Очищаем старые данные
+    await pool.execute('DELETE FROM schedules');
     
-//     // Сохраняем новые данные
-//     for (const [address, scheduleArray] of Object.entries(schedulesData)) {
-//       await pool.query(
-//         'INSERT INTO schedules (address, schedule_data) VALUES ($1, $2)',
-//         [address, JSON.stringify(scheduleArray)] // Добавляем JSON.stringify для JSONB
-//       );
-//     }
-//     console.log('✅ Schedules saved to database');
-//   } catch (err) {
-//     console.error('❌ Failed to save schedules:', err);
-//     throw err; // Добавляем throw для лучшей отладки
-//   }
-// }
+    // Сохраняем новые данные
+    for (const [address, scheduleArray] of Object.entries(schedulesData)) {
+      await pool.execute(
+        'INSERT INTO schedules (address, schedule_data) VALUES (?, ?)',
+        [address, JSON.stringify(scheduleArray)]
+      );
+    }
+    console.log('✅ Schedules saved to database');
+  } catch (err) {
+    console.error('❌ Failed to save schedules:', err);
+    throw err;
+  }
+}
 
-// async function loadSchedules() {
-//   try {
-//     const result = await pool.query('SELECT address, schedule_data FROM schedules');
-//     const schedules = {};
+async function loadSchedules() {
+  try {
+    const [rows] = await pool.execute('SELECT address, schedule_data FROM schedules');
+    const schedules = {};
     
-//     for (const row of result.rows) {
-//       schedules[row.address] = row.schedule_data;
-//     }
+    for (const row of rows) {
+      schedules[row.address] = JSON.parse(row.schedule_data);
+    }
     
-//     console.log(`✅ Loaded schedules for ${Object.keys(schedules).length} addresses`);
-//     return schedules;
-//   } catch (err) {
-//     console.error('❌ Failed to load schedules:', err);
-//     return {};
-//   }
-// }
+    console.log(`✅ Loaded schedules for ${Object.keys(schedules).length} addresses`);
+    return schedules;
+  } catch (err) {
+    console.error('❌ Failed to load schedules:', err);
+    return {};
+  }
+}
 
-// // Инициализируем базу данных при запуске
-// await initDatabase();
+// Инициализируем базу данных при запуске
+await initDatabase();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
 const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
-
 
 // Load config from .env
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -192,7 +202,6 @@ const awaitingCustomName = new Set();
 const awaitingBroadcast = new Set();
 const pendingReminders = new Map();
 const pendingBookings = new Map();
-
 
 if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
   console.error('❌ Missing BOT_TOKEN, ADMIN_CHAT_ID or WEBAPP_URL');
@@ -210,6 +219,22 @@ async function isAdminUser(ctx) {
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 
+// Add error handler
+bot.catch((err, ctx) => {
+  console.error('❌ Bot error:', err);
+  console.error('Context:', ctx.update);
+});
+
+// Add debug middleware
+bot.use((ctx, next) => {
+  console.log('📨 Received update:', {
+    type: ctx.updateType,
+    from: ctx.from?.id,
+    chat: ctx.chat?.id,
+    text: ctx.message?.text
+  });
+  return next();
+});
 
 bot.command('check_data', async (ctx) => {
   if (ctx.chat.id.toString() !== ADMIN_CHAT_ID) return;
@@ -226,22 +251,23 @@ bot.command('check_data', async (ctx) => {
 
 // Set up menu commands
 try {
-  // Команды для обычных пользователей (только команду start)
+  // Команды для обычных пользователей
   const publicCommands = [
     { command: 'start', description: 'Начать заново' },
     { command: 'contacts', description: 'Контакты студии' }
   ];
   await bot.telegram.setMyCommands(publicCommands);
 
-  // Команды для администраторов (только команду update_schedule)
+  // Команды для администраторов
   const adminGroupCommands = [
     { command: 'update_schedule', description: 'Обновить расписание' },
     { command: 'cancel_schedule', description: 'Отменить загрузку расписания' },
     { command: 'users_count', description: 'Количество пользователей' },
-    { command: 'broadcast', description: 'Рассылка сообщения' }
+    { command: 'broadcast', description: 'Рассылка сообщения' },
+    { command: 'check_schedules', description: 'Проверить расписания' }
   ];
   await bot.telegram.setMyCommands(adminGroupCommands, {
-    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }  // Ограничение команд только для админа
+    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
   });
 
 } catch (err) {
@@ -255,53 +281,11 @@ async function sendMessageToUser(userId, message) {
   } catch (error) {
     if (error.code === 403) {
       console.error(`User ${userId} has blocked the bot. Removing from database.`);
-      await removeUser(userId); // Remove the user from the database
+      await removeUser(userId);
     } else {
       console.error(`Failed to send message to user ${userId}:`, error.message);
     }
   }
-}
-
-// Update schedule function
-async function updateScheduleFromExcel(filePath) {
-  const workbook = XLSX.readFile(filePath);
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json(sheet);
-
-  const newSchedules = {};
-
-  data.forEach(row => {
-    let dateValue = row.date;
-    if (typeof dateValue === 'number') {
-      dateValue = new Date((dateValue - 25569) * 86400 * 1000);
-    } else {
-      dateValue = new Date(dateValue);
-    }
-    const formattedDate = dateValue.toISOString().split('T')[0];
-
-    if (!newSchedules[row.address]) {
-      newSchedules[row.address] = [];
-    }
-
-    const orderedEntry = {
-      date: formattedDate,
-      time: row.time,
-      direction: row.direction.trim(),
-      address: row.address.trim()
-    };
-
-    newSchedules[row.address].push(orderedEntry);
-  });
-
-  console.log('Generated schedules:', newSchedules);
-
-  // Сохраняем в базу данных вместо файла
-  await saveSchedules(newSchedules);
-  
-  // Обновляем глобальную переменную
-  schedules = newSchedules;
-
-  return newSchedules;
 }
 
 // НОВАЯ функция для обновления расписания из буфера
@@ -309,7 +293,6 @@ async function updateScheduleFromBuffer(buffer) {
   try {
     console.log('📊 Starting to process Excel buffer...');
     
-    // Читаем буфер как Excel файл
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     console.log('📋 Workbook sheets:', workbook.SheetNames);
     
@@ -327,7 +310,6 @@ async function updateScheduleFromBuffer(buffer) {
 
     data.forEach((row, index) => {
       try {
-        // Проверяем наличие обязательных полей
         if (!row.date || !row.time || !row.direction || !row.address) {
           console.log(`⚠️ Row ${index + 1} missing required fields:`, row);
           errorRows++;
@@ -336,9 +318,7 @@ async function updateScheduleFromBuffer(buffer) {
 
         let dateValue = row.date;
         
-        // Обработка даты
         if (typeof dateValue === 'number') {
-          // Excel serial date
           dateValue = new Date((dateValue - 25569) * 86400 * 1000);
         } else {
           dateValue = new Date(dateValue);
@@ -379,10 +359,7 @@ async function updateScheduleFromBuffer(buffer) {
       addresses: Object.keys(newSchedules).length
     });
 
-    // Сохраняем в базу данных
     await saveSchedules(newSchedules);
-    
-    // Обновляем глобальную переменную
     schedules = newSchedules;
     
     console.log('✅ Schedules updated successfully');
@@ -405,49 +382,45 @@ bot.start(async ctx => {
   const chatId = ctx.chat.id;
   const userId = ctx.from.id;
   
-  // Добавляем пользователя в базу
   await addUser(userId, firstName, username);
-  
-  // Сохраняем имя из Telegram как дефолтное
   await setUserName(chatId, firstName);
   
-  // Send welcome photo first
   if (pendingReminders.has(chatId)) {
-      const {t3, t15, t24 } = pendingReminders.get(chatId);
-      clearTimeout(t3);
-      clearTimeout(t15);
-      clearTimeout(t24);
-    }
+    const {t3, t15, t24 } = pendingReminders.get(chatId);
+    clearTimeout(t3);
+    clearTimeout(t15);
+    clearTimeout(t24);
+  }
   
-    const t15 = setTimeout(() => {
+  const t15 = setTimeout(() => {
     bot.telegram.sendMessage(
       chatId,
       `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
-  Markup.inlineKeyboard([
-    Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
-  ])
+      Markup.inlineKeyboard([
+        Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
+      ])
     );
-  },15 * 60 * 1000);
+  }, 15 * 60 * 1000);
 
   const t3 = setTimeout(() => {
     bot.telegram.sendMessage(
       chatId,
       `👋 Привет, ${firstName}! 🏃‍♀️ Места на бесплатное пробное занятие заканчиваются — успей забронировать своё!`,
       Markup.inlineKeyboard([
-    Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
-  ])
+        Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
+      ])
     );
   }, 3 * 60 * 60 * 1000);
 
   const t24 = setTimeout(() => {
-      bot.telegram.sendMessage(
-        chatId, 
-        `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
-        Markup.inlineKeyboard([
-    Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
-  ])
-      );
-    }, 24 * 60 * 60 * 1000);
+    bot.telegram.sendMessage(
+      chatId, 
+      `${firstName}, успейте воспользоваться бесплатным первым занятием в нашей студии 💛.\nВыберите пробное занятие, пока их не разобрали 🙈`,
+      Markup.inlineKeyboard([
+        Markup.button.webApp('Записаться онлайн', WEBAPP_URL)
+      ])
+    );
+  }, 24 * 60 * 60 * 1000);
 
   pendingReminders.set(chatId, {t3, t15, t24 });
 
