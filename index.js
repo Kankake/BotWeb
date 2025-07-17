@@ -74,18 +74,17 @@ let schedules = {}; // глобальная переменная
 // Создание таблиц при запуске
 async function initDatabase() {
   try {
-    // Таблица для расписаний
-    await pool.query(`
+    // Create tables using MySQL connection
+    await connection.promise().query(`
       CREATE TABLE IF NOT EXISTS schedules (
-        id SERIAL PRIMARY KEY,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         address VARCHAR(255) NOT NULL,
-        schedule_data JSONB NOT NULL,
+        schedule_data JSON NOT NULL,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     
-    // Таблица для пользователей бота
-    await pool.query(`
+    await connection.promise().query(`
       CREATE TABLE IF NOT EXISTS bot_users (
         user_id BIGINT PRIMARY KEY,
         first_name VARCHAR(255),
@@ -94,8 +93,7 @@ async function initDatabase() {
       )
     `);
     
-    // Таблица для пользовательских имен
-    await pool.query(`
+    await connection.promise().query(`
       CREATE TABLE IF NOT EXISTS user_names (
         chat_id BIGINT PRIMARY KEY,
         custom_name VARCHAR(255) NOT NULL,
@@ -105,20 +103,20 @@ async function initDatabase() {
     
     console.log("✅ Database tables initialized");
   } catch (err) {
-    console.error("❌ Database initialization error:", err);
+    console.log("Database initialization status:", err);
   }
 }
 
 // Функции для работы с пользователями
 async function addUser(userId, firstName, username) {
   try {
-    await pool.query(
-      'INSERT INTO bot_users (user_id, first_name, username) VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING',
-      [userId, firstName || '', username || '']
+    await connection.promise().query(
+      'INSERT INTO bot_users (user_id, first_name, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE first_name = ?, username = ?',
+      [userId, firstName || '', username || '', firstName || '', username || '']
     );
-    console.log("👤 User added/updated: ${userId}");
+    console.log("👤 User added/updated:", userId);
   } catch (err) {
-    console.error("❌ Failed to add user:", err);
+    console.log("User operation status:", err);
   }
 }
 
