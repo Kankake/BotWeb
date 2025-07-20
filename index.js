@@ -852,63 +852,16 @@ console.log(`🔧 Режим запуска: ${isProd ? 'PRODUCTION (webhook)' :
 
 // Добавьте эти маршруты перед if (isProd)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Проверка здоровья сервера
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    webapp_url: WEBAPP_URL 
-  });
-});
-
-// Информация о боте
-app.get('/info', (req, res) => {
-  res.json({
-    bot: 'Telegram WebApp Bot',
-    status: 'running',
-    schedules_count: Object.keys(schedules).length,
-    webapp_url: WEBAPP_URL
-  });
+  res.send('<h1>Server Works!</h1>');
 });
 
 app.get('/test', (req, res) => {
-  res.send('<h1>Сервер работает!</h1><p>WebApp URL: ' + WEBAPP_URL + '</p>');
+  res.json({ status: 'ok', time: new Date() });
 });
 
-if (isProd) {
-  // PRODUCTION: только webhook, БЕЗ polling
-  try {
-    await bot.telegram.deleteWebhook();
-    await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-    app.use(bot.webhookCallback(WEBHOOK_PATH));
-    
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`✅ Webhook установлен на ${WEBAPP_URL}${WEBHOOK_PATH}, порт ${PORT}`);
-      console.log(`🌐 WebApp доступен: ${WEBAPP_URL}`);
-    });
-  } catch (error) {
-    console.error('❌ Ошибка установки webhook:', error);
-    process.exit(1);
-  }
-} else {
-  // DEVELOPMENT: только polling, БЕЗ webhook
-  try {
-    await bot.telegram.deleteWebhook(); // Удаляем webhook если был
-    await bot.launch();
-    
-    app.listen(PORT, () => {
-      console.log(`🤖 Бот запущен в режиме polling, порт ${PORT}`);
-      console.log(`🌐 WebApp доступен: http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.error('❌ Ошибка запуска polling:', error);
-    process.exit(1);
-  }
-}
-
-// graceful shutdown
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+console.log('🚀 Starting server...');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on port ${PORT}`);
+}).on('error', (err) => {
+  console.error('❌ Server error:', err);
+});
