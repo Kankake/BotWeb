@@ -495,10 +495,27 @@ async function updateScheduleFromBuffer(buffer) {
 
 // Set up menu commands
 try {
+  console.log('🔧 Настройка меню команд...');
+  
+  // Сначала полностью очищаем все команды
+  await bot.telegram.deleteMyCommands();
+  console.log('🗑️ Все команды удалены');
+  
+  // Очищаем команды для админского чата
+  await bot.telegram.deleteMyCommands({
+    scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
+  });
+  console.log('🗑️ Админские команды удалены');
+  
+  // Ждем немного для обновления
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  // Устанавливаем только одну публичную команду
   const publicCommands = [
-    { command: 'start', description: 'Начать заново' },
+    { command: 'start', description: 'Начать заново' }
   ];
   await bot.telegram.setMyCommands(publicCommands);
+  console.log('✅ Публичные команды установлены:', publicCommands);
 
   const adminGroupCommands = [
     { command: 'update_schedule', description: 'Обновить расписание' },
