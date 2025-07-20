@@ -1018,26 +1018,11 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`✅ Сервер запущен на порту ${PORT}`);
   console.log(`🌐 Доступен по адресу: http://0.0.0.0:${PORT}`);
   
-  // ПОТОМ настраиваем бота
-  try {
-    if (isProd) {
-      // PRODUCTION: webhook
-      console.log('🔄 Настройка webhook...');
-      await bot.telegram.deleteWebhook();
-      await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-      app.use(bot.webhookCallback(WEBHOOK_PATH));
-      console.log(`✅ Webhook установлен на ${WEBAPP_URL}${WEBHOOK_PATH}`);
-      botRunning = false;
-    } else {
-      // DEVELOPMENT: polling
-      console.log('🔄 Запуск polling...');
-      await bot.launch();
-      botRunning = true;
-      console.log('✅ Бот запущен в режиме polling');
-    }
-  } catch (err) {
-    console.error('❌ Ошибка настройки бота:', err);
-  }
+  // Ждем немного, чтобы сервер полностью запустился
+  setTimeout(async () => {
+    console.log('🤖 Настраиваем бота...');
+    await setupBot();
+  }, 3000);
 });
 
 server.on('error', (err) => {
