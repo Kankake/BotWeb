@@ -6,6 +6,8 @@ import { Telegraf, Markup } from 'telegraf'
 import XLSX from 'xlsx'
 import fetch from 'node-fetch'
 import dotenv from 'dotenv'
+import pg from 'pg';
+const { Pool } = pg;
 
 dotenv.config();
 
@@ -13,8 +15,9 @@ console.log('🚀 Bot starting up...');
 console.log('Environment check:', {
   PORT: process.env.PORT,
   WEBAPP_URL: process.env.WEBAPP_URL,
-  MYSQL_HOST: process.env.MYSQL_HOST,
-  MYSQL_DBNAME: process.env.MYSQL_DBNAME,
+  DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+  POSTGRES_HOST: process.env.POSTGRES_HOST,
+  POSTGRES_DB: process.env.POSTGRES_DB,
   BOT_TOKEN: process.env.BOT_TOKEN ? 'SET' : 'NOT SET',
   ADMIN_CHAT_ID: process.env.ADMIN_CHAT_ID ? 'SET' : 'NOT SET'
 });
@@ -66,17 +69,105 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
 
 // Database functions with fallback to memory
 async function initDatabase() {
-  // Skip MySQL initialization, use only memory storage
-  console.log('⚠️ Using memory storage only');
-  return;
+  try {
+    // Конфигурация для Amvera PostgreSQL
+    const config = process.env.DATABASE_URL ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: false // Amvera не требует SSL для внутренних подключений
+    } : {
+      host: process.env.POSTGRES_HOST || 'amvera-framezilla-cnpg-bd-bota-rw',
+      port: process.env.POSTGRES_PORT || 5432,
+      database: process.env.POSTGRES_DB || 'postgres',
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+      ssl: false,
+      // Дополнительные настройки для стабильности
+      max: 20, // максимум подключений в пуле
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
+
+    console.log('🔄 Подключение к PostgreSQL...', {
+      host: config.host || 'from DATABASE_URL',
+      database: config.database || 'from DATABASE_URL',
+      user: config.user || 'from DATABASE_URL'
+    });
+
+    pool = new Pool(config);
+    
+    // Тест подключения с таймаутом
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW() as current_time');
+    console.log('✅ PostgreSQL подключен успешно, время сервера:', result.rows[0].current_time);
+    
+    // Создание таблиц
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS bot_users (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT UNIQUE NOT NULL,
+        first_name VARCHAR(255),
+        username VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_names (
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT UNIQUE NOT NULL,
+        custom_name VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS schedules (
+        id SERIAL PRIMARY KEY,
+        address VARCHAR(500) NOT NULL,
+        schedule_data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Создание индексов
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_bot_users_user_id ON bot_users(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_names_chat_id ON user_names(chat_id);
+      CREATE INDEX IF NOT EXISTS idx_schedules_address ON schedules(address);
+    `);
+
+    client.release();
+    console.log('✅ Таблицы PostgreSQL созданы/проверены');
+    
+    // Загружаем существующие расписания
+    const loadedSchedules = await loadSchedules();
+    if (Object.keys(loadedSchedules).length > 0) {
+      schedules = loadedSchedules;
+      console.log(`✅ Загружено расписаний из БД: ${Object.keys(loadedSchedules).length} студий`);
+    }
+    
+  } catch (err) {
+    console.error('❌ Ошибка подключения к PostgreSQL:', err.message);
+    console.log('⚠️ Переключаемся на память');
+    pool = null;
+  }
 }
 
 
 async function addUser(userId, firstName, username) {
   if (pool) {
     try {
-      await pool.execute(
-        'INSERT INTO bot_users (user_id, first_name, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE first_name = VALUES(first_name), username = VALUES(username)',
+      await pool.query(
+        `INSERT INTO bot_users (user_id, first_name, username, updated_at) 
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP) 
+         ON CONFLICT (user_id) 
+         DO UPDATE SET 
+           first_name = EXCLUDED.first_name, 
+           username = EXCLUDED.username, 
+           updated_at = CURRENT_TIMESTAMP`,
         [userId, firstName || '', username || '']
       );
       console.log(`👤 User added/updated in DB: ${userId}`);
@@ -94,8 +185,8 @@ async function addUser(userId, firstName, username) {
 async function getUsersCount() {
   if (pool) {
     try {
-      const [rows] = await pool.execute('SELECT COUNT(*) as count FROM bot_users');
-      return parseInt(rows[0].count);
+      const result = await pool.query('SELECT COUNT(*) as count FROM bot_users');
+      return parseInt(result.rows[0].count);
     } catch (err) {
       console.error('❌ Failed to get users count from DB:', err);
     }
@@ -107,8 +198,8 @@ async function getUsersCount() {
 async function getAllUsers() {
   if (pool) {
     try {
-      const [rows] = await pool.execute('SELECT user_id FROM bot_users');
-      return rows.map(row => row.user_id);
+      const result = await pool.query('SELECT user_id FROM bot_users');
+      return result.rows.map(row => row.user_id);
     } catch (err) {
       console.error('❌ Failed to get all users from DB:', err);
     }
@@ -120,7 +211,7 @@ async function getAllUsers() {
 async function removeUser(userId) {
   if (pool) {
     try {
-      await pool.execute('DELETE FROM bot_users WHERE user_id = ?', [userId]);
+      await pool.query('DELETE FROM bot_users WHERE user_id = $1', [userId]);
       console.log(`👤 User removed from DB: ${userId}`);
       return;
     } catch (err) {
@@ -136,8 +227,13 @@ async function removeUser(userId) {
 async function setUserName(chatId, name) {
   if (pool) {
     try {
-      await pool.execute(
-        'INSERT INTO user_names (chat_id, custom_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE custom_name = VALUES(custom_name), updated_at = CURRENT_TIMESTAMP',
+      await pool.query(
+        `INSERT INTO user_names (chat_id, custom_name, updated_at) 
+         VALUES ($1, $2, CURRENT_TIMESTAMP) 
+         ON CONFLICT (chat_id) 
+         DO UPDATE SET 
+           custom_name = EXCLUDED.custom_name, 
+           updated_at = CURRENT_TIMESTAMP`,
         [chatId, name]
       );
       return;
@@ -152,8 +248,8 @@ async function setUserName(chatId, name) {
 async function getUserName(chatId) {
   if (pool) {
     try {
-      const [rows] = await pool.execute('SELECT custom_name FROM user_names WHERE chat_id = ?', [chatId]);
-      return rows[0]?.custom_name || null;
+      const result = await pool.query('SELECT custom_name FROM user_names WHERE chat_id = $1', [chatId]);
+      return result.rows[0]?.custom_name || null;
     } catch (err) {
       console.error('❌ Failed to get user name from DB:', err);
     }
@@ -165,16 +261,29 @@ async function getUserName(chatId) {
 async function saveSchedules(schedulesData) {
   if (pool) {
     try {
-      await pool.execute('DELETE FROM schedules');
+      // Начинаем транзакцию
+      const client = await pool.connect();
       
-      for (const [address, scheduleArray] of Object.entries(schedulesData)) {
-        await pool.execute(
-          'INSERT INTO schedules (address, schedule_data) VALUES (?, ?)',
-          [address, JSON.stringify(scheduleArray)]
-        );
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM schedules');
+        
+        for (const [address, scheduleArray] of Object.entries(schedulesData)) {
+          await client.query(
+            'INSERT INTO schedules (address, schedule_data, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP)',
+            [address, JSON.stringify(scheduleArray)]
+          );
+        }
+        
+        await client.query('COMMIT');
+        console.log('✅ Schedules saved to PostgreSQL database');
+        return;
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
       }
-      console.log('✅ Schedules saved to MySQL database');
-      return;
     } catch (err) {
       console.error('❌ Failed to save schedules to DB:', err);
     }
@@ -187,10 +296,10 @@ async function saveSchedules(schedulesData) {
 async function loadSchedules() {
   if (pool) {
     try {
-      const [rows] = await pool.execute('SELECT address, schedule_data FROM schedules');
+      const result = await pool.query('SELECT address, schedule_data FROM schedules');
       const loadedSchedules = {};
       
-      for (const row of rows) {
+      for (const row of result.rows) {
         loadedSchedules[row.address] = JSON.parse(row.schedule_data);
       }
       
@@ -326,7 +435,8 @@ try {
     { command: 'cancel_schedule', description: 'Отменить загрузку расписания' },
     { command: 'users_count', description: 'Количество пользователей' },
     { command: 'broadcast', description: 'Рассылка сообщения' },
-    { command: 'check_schedules', description: 'Проверить расписания' }
+    { command: 'check_schedules', description: 'Проверить расписания' },
+    { command: 'db_status', description: 'Статус базы данных' }
   ];
   await bot.telegram.setMyCommands(adminGroupCommands, {
     scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
@@ -929,6 +1039,17 @@ const shutdown = (signal) => {
         console.error('Ошибка остановки бота:', err);
       }
     }
+    
+    // Закрываем подключение к БД
+    if (pool) {
+      try {
+        await pool.end();
+        console.log('✅ PostgreSQL подключение закрыто');
+      } catch (err) {
+        console.error('❌ Ошибка закрытия PostgreSQL:', err);
+      }
+    }
+    
     process.exit(0);
   });
 };
@@ -944,4 +1065,34 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
   process.exit(1);
+});
+
+// Добавьте новую админскую команду:
+bot.command('db_status', async (ctx) => {
+  if (!(await isAdminUser(ctx))) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+  }
+  
+  if (!pool) {
+    return ctx.reply('❌ База данных не подключена (используется память)');
+  }
+  
+  try {
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW() as time');
+    const usersCount = await getUsersCount();
+    const schedulesCount = Object.keys(schedules).length;
+    
+    client.release();
+    
+    await ctx.reply(`✅ База данных работает
+🕐 Время сервера: ${result.rows[0].time}
+👥 Пользователей: ${usersCount}
+📅 Студий в расписании: ${schedulesCount}
+🔗 Подключение: PostgreSQL`);
+    
+  } catch (err) {
+    console.error('DB status error:', err);
+    await ctx.reply(`❌ Ошибка БД: ${err.message}`);
+  }
 });
