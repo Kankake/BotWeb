@@ -850,6 +850,30 @@ const isProd = process.env.NODE_ENV === 'production';
 
 console.log(`🔧 Режим запуска: ${isProd ? 'PRODUCTION (webhook)' : 'DEVELOPMENT (polling)'}`);
 
+// Добавьте эти маршруты перед if (isProd)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Проверка здоровья сервера
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    webapp_url: WEBAPP_URL 
+  });
+});
+
+// Информация о боте
+app.get('/info', (req, res) => {
+  res.json({
+    bot: 'Telegram WebApp Bot',
+    status: 'running',
+    schedules_count: Object.keys(schedules).length,
+    webapp_url: WEBAPP_URL
+  });
+});
+
 if (isProd) {
   // PRODUCTION: только webhook, БЕЗ polling
   try {
