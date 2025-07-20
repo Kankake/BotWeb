@@ -1021,7 +1021,65 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   // Ждем немного, чтобы сервер полностью запустился
   setTimeout(async () => {
     console.log('🤖 Настраиваем бота...');
-    await setupBot();
+    
+    try {
+      if (isProd) {
+        // PRODUCTION: webhook
+        console.log('🔄 Настройка webhook...');
+        console.log('🔗 Полный URL webhook:', `${WEBAPP_URL}${WEBHOOK_PATH}`);
+        
+        // Удаляем старый webhook и pending updates
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        console.log('🗑️ Старый webhook удален, pending updates очищены');
+        
+        // Ждем немного
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Устанавливаем новый webhook
+        const webhookResult = await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
+        console.log('✅ Webhook установлен:', webhookResult);
+        
+        // Настраиваем обработчик webhook
+        app.post(WEBHOOK_PATH, express.json(), (req, res) => {
+          console.log('📨 Webhook получен:', {
+            timestamp: new Date().toISOString(),
+            updateId: req.body.update_id,
+            hasMessage: !!req.body.message,
+            messageText: req.body.message?.text?.substring(0, 50)
+          });
+          
+          try {
+            bot.handleUpdate(req.body);
+            res.status(200).send('OK');
+          } catch (error) {
+            console.error('❌ Ошибка обработки webhook:', error);
+            res.status(500).send('Error');
+          }
+        });
+        
+        console.log(`✅ Webhook callback настроен на ${WEBHOOK_PATH}`);
+        botRunning = false;
+        
+      } else {
+        // DEVELOPMENT: polling
+        console.log('🔄 Запуск polling...');
+        await bot.launch();
+        botRunning = true;
+        console.log('✅ Бот запущен в режиме polling');
+      }
+      
+      // Проверяем статус webhook
+      const webhookInfo = await bot.telegram.getWebhookInfo();
+      console.log('📊 Webhook статус:', {
+        url: webhookInfo.url,
+        pending_updates: webhookInfo.pending_update_count,
+        last_error: webhookInfo.last_error_message || 'none'
+      });
+      
+    } catch (err) {
+      console.error('❌ Ошибка настройки бота:', err.message);
+      console.error('Stack:', err.stack);
+    }
   }, 3000);
 });
 
