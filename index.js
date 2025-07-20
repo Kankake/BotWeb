@@ -5,7 +5,6 @@ import { fileURLToPath } from 'url'
 import { Telegraf, Markup } from 'telegraf'
 import XLSX from 'xlsx'
 import fetch from 'node-fetch'
-import mysql from 'mysql2/promise'
 import dotenv from 'dotenv'
 
 dotenv.config();
@@ -22,6 +21,11 @@ console.log('Environment check:', {
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname  = dirname(__filename)
+
+// Initialize Express app - ADD THIS SECTION
+const app = express();
+app.use(express.json());
+app.use(express.static('public'));
 
 const WELCOME_PHOTO = path.join(__dirname, 'public', 'assets', 'welcome.jpg');
 const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
