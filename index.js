@@ -403,6 +403,8 @@ bot.catch((err, ctx) => {
 // Add debug middleware
 bot.use((ctx, next) => {
   console.log('📨 Received:', ctx.updateType, 'from:', ctx.from?.id);
+  console.log('Current data:', data);
+
   return next();
 });
 
