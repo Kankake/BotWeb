@@ -56,54 +56,11 @@ if (!BOT_TOKEN || !ADMIN_CHAT_ID || !WEBAPP_URL) {
 
 // Database functions with fallback to memory
 async function initDatabase() {
-  if (!pool) {
-    console.log('⚠️ No database configured, using memory storage');
-    return;
-  }
-  
-  try {
-    console.log('🔄 Testing MySQL connection...');
-    const connection = await pool.getConnection();
-    console.log('✅ MySQL connection successful');
-    connection.release();
-    
-    console.log('🔄 Initializing MySQL database tables...');
-    
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS schedules (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        address VARCHAR(255) NOT NULL,
-        schedule_data JSON NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS bot_users (
-        user_id BIGINT PRIMARY KEY,
-        first_name VARCHAR(255),
-        username VARCHAR(255),
-        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS user_names (
-        chat_id BIGINT PRIMARY KEY,
-        custom_name VARCHAR(255) NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    
-    console.log('✅ MySQL database tables initialized');
-    schedules = await loadSchedules();
-    
-  } catch (err) {
-    console.error('❌ Database initialization error:', err);
-    console.log('⚠️ Falling back to memory storage');
-    pool = null;
-  }
+  // Skip MySQL initialization, use only memory storage
+  console.log('⚠️ Using memory storage only');
+  return;
 }
+
 
 async function addUser(userId, firstName, username) {
   if (pool) {
