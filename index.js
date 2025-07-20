@@ -1222,19 +1222,33 @@ app.post('/slots', (req, res) => {
 
   const slots = arr
     .filter(slot => {
-      const slotDateTime = new Date(`${slot.date}T${slot.time}`);
+      // Извлекаем время начала из диапазона (например, "10:00–10:55" -> "10:00")
+      let startTime = slot.time;
+      
+      // Обрабатываем разные типы тире и извлекаем время начала
+      if (startTime.includes('–')) {
+        startTime = startTime.split('–')[0].trim();
+      } else if (startTime.includes('-')) {
+        startTime = startTime.split('-')[0].trim();
+      } else if (startTime.includes('—')) {
+        startTime = startTime.split('—')[0].trim();
+      }
+      
+      // Создаем объект даты только с временем начала
+      const slotDateTime = new Date(`${slot.date}T${startTime}:00`);
       const directionMatch = slot.direction.trim() === direction.trim();
       const timeValid = !isNaN(slotDateTime.getTime());
       const timeInRange = slotDateTime >= now && slotDateTime <= targetDate;
       
       console.log(`🔍 Checking slot:`, {
         slot: `${slot.date} ${slot.time} - ${slot.direction}`,
+        extractedStartTime: startTime,
         directionMatch,
         directionExpected: direction.trim(),
         directionActual: slot.direction.trim(),
         timeValid,
         timeInRange,
-        slotDateTime: slotDateTime.toISOString(),
+        slotDateTime: timeValid ? slotDateTime.toISOString() : 'INVALID',
         passed: directionMatch && timeValid && timeInRange
       });
       
@@ -1242,8 +1256,12 @@ app.post('/slots', (req, res) => {
     })
     .map(slot => ({ date: slot.date, time: slot.time }))
     .sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time}`);
-      const dateB = new Date(`${b.date}T${b.time}`);
+      // Извлекаем время начала для сортировки
+      let startTimeA = a.time.includes('–') ? a.time.split('–')[0].trim() : a.time;
+      let startTimeB = b.time.includes('–') ? b.time.split('–')[0].trim() : b.time;
+      
+      const dateA = new Date(`${a.date}T${startTimeA}:00`);
+      const dateB = new Date(`${b.date}T${startTimeB}:00`);
       return dateA - dateB;
     });
 
@@ -1254,6 +1272,7 @@ app.post('/slots', (req, res) => {
 
   res.json({ ok: true, slots });
 });
+
 
 
 // Добавляем новый endpoint для получения имени пользователя
