@@ -874,6 +874,10 @@ app.get('/info', (req, res) => {
   });
 });
 
+app.get('/test', (req, res) => {
+  res.send('<h1>Сервер работает!</h1><p>WebApp URL: ' + WEBAPP_URL + '</p>');
+});
+
 if (isProd) {
   // PRODUCTION: только webhook, БЕЗ polling
   try {
