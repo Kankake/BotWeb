@@ -403,8 +403,6 @@ bot.catch((err, ctx) => {
 // Add debug middleware
 bot.use((ctx, next) => {
   console.log('📨 Received:', ctx.updateType, 'from:', ctx.from?.id);
-  console.log('Current data:', data);
-
   return next();
 });
 
@@ -499,7 +497,8 @@ async function updateScheduleFromBuffer(buffer) {
 try {
   const publicCommands = [
     { command: 'start', description: 'Начать заново' },
-    { command: 'contacts', description: 'Контакты студии' }
+    { command: 'contacts', description: 'Контакты студии' },
+    { command: 'server_time', description: 'Время сервера' }
   ];
   await bot.telegram.setMyCommands(publicCommands);
 
@@ -975,6 +974,21 @@ bot.command('contacts', ctx => {
   Дзержинского 211/2 — +7-993-30-10-137`
   );
 });
+
+// Добавьте эту команду после других админских команд
+bot.command('server_time', async (ctx) => {
+  const now = new Date();
+  const moscowTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
+  
+  const message = `🕐 Время сервера:
+📅 UTC: ${now.toISOString()}
+📅 Москва: ${moscowTime.toLocaleString('ru-RU')}
+📅 Локальное: ${now.toLocaleString('ru-RU')}
+⏰ Timestamp: ${now.getTime()}`;
+  
+  await ctx.reply(message);
+});
+
 
 // Исправленная команда update_schedule
 bot.command('update_schedule', async (ctx) => {
