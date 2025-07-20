@@ -288,10 +288,24 @@ async function saveSchedules(schedulesData) {
         await client.query('DELETE FROM schedules');
         
         for (const [address, scheduleArray] of Object.entries(schedulesData)) {
+          // Проверяем, что scheduleArray это массив
+          if (!Array.isArray(scheduleArray)) {
+            console.error(`❌ Invalid schedule data for ${address}: not an array`);
+            continue;
+          }
+          
+          // Сериализуем в JSON строку
+          const jsonString = JSON.stringify(scheduleArray);
+          
+          // Проверяем, что JSON корректный
+          JSON.parse(jsonString); // Тест парсинга
+          
           await client.query(
             'INSERT INTO schedules (address, schedule_data, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP)',
-            [address, JSON.stringify(scheduleArray)]
+            [address, jsonString]
           );
+          
+          console.log(`✅ Saved schedule for ${address}: ${scheduleArray.length} slots`);
         }
         
         await client.query('COMMIT');
@@ -312,18 +326,55 @@ async function saveSchedules(schedulesData) {
   console.log('✅ Schedules saved to memory');
 }
 
+// Замените функцию loadSchedules на эту улучшенную версию:
 async function loadSchedules() {
   if (pool) {
     try {
-      const result = await pool.query('SELECT address, schedule_data FROM schedules');
+      const result = await pool.query('SELECT id, address, schedule_data FROM schedules');
       const loadedSchedules = {};
+      let corruptedRows = 0;
       
       for (const row of result.rows) {
-        loadedSchedules[row.address] = JSON.parse(row.schedule_data);
+        try {
+          // Проверяем, что schedule_data это строка
+          let scheduleData = row.schedule_data;
+          
+          if (typeof scheduleData === 'string') {
+            // Если это строка, парсим JSON
+            loadedSchedules[row.address] = JSON.parse(scheduleData);
+          } else if (typeof scheduleData === 'object' && scheduleData !== null) {
+            // Если это уже объект, используем как есть
+            loadedSchedules[row.address] = scheduleData;
+          } else {
+            console.log(`⚠️ Invalid schedule_data type for address ${row.address}:`, typeof scheduleData);
+            corruptedRows++;
+            continue;
+          }
+          
+          console.log(`✅ Loaded schedule for ${row.address}: ${loadedSchedules[row.address].length} slots`);
+          
+        } catch (parseError) {
+          console.error(`❌ Failed to parse schedule for address ${row.address}:`, parseError.message);
+          console.log(`Raw data:`, row.schedule_data);
+          corruptedRows++;
+          
+          // Удаляем поврежденную запись
+          try {
+            await pool.query('DELETE FROM schedules WHERE id = $1', [row.id]);
+            console.log(`🗑️ Deleted corrupted schedule record for ${row.address}`);
+          } catch (deleteError) {
+            console.error(`❌ Failed to delete corrupted record:`, deleteError.message);
+          }
+        }
+      }
+      
+      if (corruptedRows > 0) {
+        console.log(`⚠️ Found and cleaned ${corruptedRows} corrupted schedule records`);
       }
       
       console.log(`✅ Loaded schedules for ${Object.keys(loadedSchedules).length} addresses from DB`);
       return loadedSchedules;
+      
     } catch (err) {
       console.error('❌ Failed to load schedules from DB:', err);
     }
@@ -331,6 +382,7 @@ async function loadSchedules() {
   
   return {};
 }
+
 
 // Initialize database
 await initDatabase();
@@ -784,6 +836,41 @@ bot.on('text', async (ctx) => {
     }
     return;
   }
+
+// В секции bot.on('text') добавьте:
+if (text.startsWith(`/clean_db@${botUsername}`)) {
+  console.log('📝 Команда clean_db с упоминанием получена от:', ctx.chat.id);
+  
+  if (!(await isAdminUser(ctx))) {
+    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
+  }
+  
+  if (!pool) {
+    return ctx.reply('❌ База данных не подключена');
+  }
+  
+  try {
+    const client = await pool.connect();
+    
+    // Очищаем таблицу schedules
+    await client.query('DELETE FROM schedules');
+    console.log('🗑️ Cleared schedules table');
+    
+    // Очищаем глобальную переменную
+    schedules = {};
+    
+    client.release();
+    
+    await ctx.reply('✅ База данных очищена. Загрузите новое расписание командой /update_schedule');
+    
+  } catch (err) {
+    console.error('❌ Error cleaning database:', err);
+    await ctx.reply(`❌ Ошибка очистки БД: ${err.message}`);
+  }
+  return;
+}
+
+
     if (awaitingScheduleUpload.has(ctx.chat.id)) {
       awaitingScheduleUpload.delete(ctx.chat.id);
       ctx.reply('❌ Загрузка расписания отменена');
