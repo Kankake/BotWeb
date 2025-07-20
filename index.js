@@ -859,9 +859,19 @@ app.get('/test', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-console.log('🚀 Starting server...');
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on port ${PORT}`);
-}).on('error', (err) => {
-  console.error('❌ Server error:', err);
-});
+const HOST = process.env.HOST || '0.0.0.0';  // Добавьте в начало файла
+
+// И в секции запуска:
+if (isProd) {
+  await bot.telegram.deleteWebhook();
+  await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
+  app.use(bot.webhookCallback(WEBHOOK_PATH));
+  app.listen(PORT, HOST, () =>
+    console.log(`✅ Webhook установлен на ${WEBAPP_URL}${WEBHOOK_PATH}, host: ${HOST}, порт: ${PORT}`)
+  );
+} else {
+  await bot.launch();
+  app.listen(PORT, HOST, () => 
+    console.log(`🤖 Бот запущен в режиме polling, host: ${HOST}, порт: ${PORT}`)
+  );
+}
