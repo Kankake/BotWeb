@@ -853,10 +853,16 @@ async function sendBookingToAdmin(bookingData) {
 }
 
 const isProd = process.env.NODE_ENV === 'production';
-const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
+const PORT = process.env.PORT || process.env.SERVER_PORT || process.env.AMVERA_PORT || 80;
 
 console.log(`🔧 Режим запуска: ${isProd ? 'PRODUCTION (webhook)' : 'DEVELOPMENT (polling)'}`);
 console.log(`🔌 Порт: ${PORT}`);
+console.log(`🔍 Переменные портов:`, {
+  PORT: process.env.PORT,
+  SERVER_PORT: process.env.SERVER_PORT,
+  AMVERA_PORT: process.env.AMVERA_PORT,
+  используется: PORT
+});
 
 // Добавьте маршруты для проверки
 app.get('/', (req, res) => {
