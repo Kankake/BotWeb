@@ -34,7 +34,6 @@ const NEXT_PHOTO = path.join(__dirname, 'public', 'assets', 'next.jpg');
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 const WEBAPP_URL = process.env.WEBAPP_URL;
-const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
 const HOST = process.env.HOST || '0.0.0.0';  // Добавьте в начало файла
@@ -848,55 +847,81 @@ async function sendBookingToAdmin(bookingData) {
 }
 
 const isProd = process.env.NODE_ENV === 'production';
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
 
 console.log(`🔧 Режим запуска: ${isProd ? 'PRODUCTION (webhook)' : 'DEVELOPMENT (polling)'}`);
+console.log(`🔌 Порт: ${PORT}`);
+console.log(`🌐 Host: 0.0.0.0`);
 
 // Добавьте эти маршруты перед if (isProd)
 app.get('/', (req, res) => {
-  res.send('<h1>Server Works!</h1>');
+  res.send('<h1>Server Works!</h1><p>Bot is running</p>');
 });
 
 app.get('/test', (req, res) => {
-  res.json({ status: 'ok', time: new Date() });
+  res.json({ 
+    status: 'ok', 
+    time: new Date(),
+    port: PORT,
+    env: process.env.NODE_ENV 
+  });
 });
 
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
 
-// И в секции запуска:
 let botRunning = false;
 
 if (isProd) {
   // PRODUCTION: webhook
-  await bot.telegram.deleteWebhook();
-  await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-  app.use(bot.webhookCallback(WEBHOOK_PATH));
-  botRunning = false; // webhook не требует bot.launch()
-  
-  app.listen(PORT, '0.0.0.0', () =>
-    console.log(`✅ Webhook установлен на ${WEBAPP_URL}${WEBHOOK_PATH}, порт ${PORT}`)
-  );
+  try {
+    await bot.telegram.deleteWebhook();
+    await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
+    app.use(bot.webhookCallback(WEBHOOK_PATH));
+    botRunning = false;
+    
+    console.log(`🔗 Webhook будет установлен на: ${WEBAPP_URL}${WEBHOOK_PATH}`);
+  } catch (err) {
+    console.error('❌ Ошибка установки webhook:', err);
+  }
 } else {
   // DEVELOPMENT: polling
   await bot.launch();
-  botRunning = true; // polling требует bot.launch()
-  
-  app.listen(PORT, '0.0.0.0', () => 
-    console.log(`🤖 Бот запущен в режиме polling, порт ${PORT}`)
-  );
+  botRunning = true;
+  console.log('🤖 Бот запущен в режиме polling');
 }
 
-// graceful shutdown с проверкой
+// Запуск сервера
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Сервер запущен на порту ${PORT}`);
+  console.log(`🌐 Доступен по адресу: http://0.0.0.0:${PORT}`);
+  if (isProd) {
+    console.log(`🔗 Webhook URL: ${WEBAPP_URL}${WEBHOOK_PATH}`);
+  }
+});
+
+server.on('error', (err) => {
+  console.error('❌ Ошибка сервера:', err);
+});
+
+// graceful shutdown
 process.once('SIGINT', () => {
   console.log('🛑 Получен сигнал SIGINT, завершаем работу...');
-  if (botRunning) {
-    bot.stop('SIGINT');
-  }
-  process.exit(0);
+  server.close(() => {
+    if (botRunning) {
+      bot.stop('SIGINT');
+    }
+    process.exit(0);
+  });
 });
 
 process.once('SIGTERM', () => {
   console.log('🛑 Получен сигнал SIGTERM, завершаем работу...');
-  if (botRunning) {
-    bot.stop('SIGTERM');
-  }
-  process.exit(0);
+  server.close(() => {
+    if (botRunning) {
+      bot.stop('SIGTERM');
+    }
+    process.exit(0);
+  });
 });
