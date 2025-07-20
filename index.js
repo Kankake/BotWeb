@@ -885,7 +885,7 @@ if (isProd) {
     await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
     app.use(bot.webhookCallback(WEBHOOK_PATH));
     
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Webhook установлен на ${WEBAPP_URL}${WEBHOOK_PATH}, порт ${PORT}`);
       console.log(`🌐 WebApp доступен: ${WEBAPP_URL}`);
     });
