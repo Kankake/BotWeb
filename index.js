@@ -100,54 +100,72 @@ async function initDatabase() {
     const result = await client.query('SELECT NOW() as current_time');
     console.log('✅ PostgreSQL подключен успешно, время сервера:', result.rows[0].current_time);
     
-    // Создание таблиц
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS bot_users (
-        id SERIAL PRIMARY KEY,
-        user_id BIGINT UNIQUE NOT NULL,
-        first_name VARCHAR(255),
-        username VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    // Проверяем права доступа
+    try {
+      await client.query('SELECT current_user, current_database(), current_schema()');
+      console.log('✅ Проверка прав доступа прошла успешно');
+    } catch (permError) {
+      console.log('⚠️ Ограниченные права доступа:', permError.message);
+    }
+    
+    // Создание таблиц с обработкой ошибок
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS bot_users (
+          id SERIAL PRIMARY KEY,
+          user_id BIGINT UNIQUE NOT NULL,
+          first_name VARCHAR(255),
+          username VARCHAR(255),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS user_names (
-        id SERIAL PRIMARY KEY,
-        chat_id BIGINT UNIQUE NOT NULL,
-        custom_name VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS user_names (
+          id SERIAL PRIMARY KEY,
+          chat_id BIGINT UNIQUE NOT NULL,
+          custom_name VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS schedules (
-        id SERIAL PRIMARY KEY,
-        address VARCHAR(500) NOT NULL,
-        schedule_data JSONB NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS schedules (
+          id SERIAL PRIMARY KEY,
+          address VARCHAR(500) NOT NULL,
+          schedule_data JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
 
-    // Создание индексов
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_bot_users_user_id ON bot_users(user_id);
-      CREATE INDEX IF NOT EXISTS idx_user_names_chat_id ON user_names(chat_id);
-      CREATE INDEX IF NOT EXISTS idx_schedules_address ON schedules(address);
-    `);
+      // Создание индексов
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_bot_users_user_id ON bot_users(user_id);
+        CREATE INDEX IF NOT EXISTS idx_user_names_chat_id ON user_names(chat_id);
+        CREATE INDEX IF NOT EXISTS idx_schedules_address ON schedules(address);
+      `);
+
+      console.log('✅ Таблицы PostgreSQL созданы/проверены');
+      
+      // Загружаем существующие расписания
+      const loadedSchedules = await loadSchedules();
+      if (Object.keys(loadedSchedules).length > 0) {
+        schedules = loadedSchedules;
+        console.log(`✅ Загружено расписаний из БД: ${Object.keys(loadedSchedules).length} студий`);
+      }
+      
+    } catch (tableError) {
+      console.error('❌ Ошибка создания таблиц:', tableError.message);
+      console.log('⚠️ Переключаемся на память из-за проблем с таблицами');
+      client.release();
+      pool = null;
+      return;
+    }
 
     client.release();
-    console.log('✅ Таблицы PostgreSQL созданы/проверены');
-    
-    // Загружаем существующие расписания
-    const loadedSchedules = await loadSchedules();
-    if (Object.keys(loadedSchedules).length > 0) {
-      schedules = loadedSchedules;
-      console.log(`✅ Загружено расписаний из БД: ${Object.keys(loadedSchedules).length} студий`);
-    }
     
   } catch (err) {
     console.error('❌ Ошибка подключения к PostgreSQL:', err.message);
@@ -155,6 +173,7 @@ async function initDatabase() {
     pool = null;
   }
 }
+
 
 
 async function addUser(userId, firstName, username) {
