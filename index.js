@@ -497,8 +497,6 @@ async function updateScheduleFromBuffer(buffer) {
 try {
   const publicCommands = [
     { command: 'start', description: 'Начать заново' },
-    { command: 'contacts', description: 'Контакты студии' },
-    { command: 'server_time', description: 'Время сервера' }
   ];
   await bot.telegram.setMyCommands(publicCommands);
 
@@ -507,10 +505,6 @@ try {
     { command: 'cancel_schedule', description: 'Отменить загрузку расписания' },
     { command: 'users_count', description: 'Количество пользователей' },
     { command: 'broadcast', description: 'Рассылка сообщения' },
-    { command: 'check_schedules', description: 'Проверить расписания' },
-    { command: 'db_status', description: 'Статус базы данных' },
-    { command: 'dump_db', description: 'Вывести БД в логи' },
-    { command: 'dump_schedules', description: 'Вывести расписания в логи' }
   ];
   await bot.telegram.setMyCommands(adminGroupCommands, {
     scope: { type: 'chat', chat_id: Number(ADMIN_CHAT_ID) }
@@ -666,212 +660,6 @@ bot.on('text', async (ctx) => {
       return ctx.reply('❌ У вас нет прав для выполнения этой команды');
     }
     
-   if (text.startsWith(`/dump_db@${botUsername}`)) {
-    console.log('📝 Команда dump_db с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    if (!pool) {
-      console.log('❌ База данных не подключена (используется память)');
-      return ctx.reply('❌ База данных не подключена (используется память)');
-    }
-    
-    try {
-      console.log('🔍 ===== DUMP DATABASE START =====');
-      
-      // 1. Информация о подключении
-      const client = await pool.connect();
-      const dbInfo = await client.query('SELECT current_database(), current_user, current_schema(), version()');
-      console.log('📊 Database Info:', dbInfo.rows[0]);
-      
-      // 2. Список всех таблиц
-      const tables = await client.query(`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        ORDER BY table_name
-      `);
-      console.log('📋 Tables:', tables.rows.map(r => r.table_name));
-      
-      // 3. Пользователи бота
-      try {
-        const users = await client.query('SELECT * FROM bot_users ORDER BY created_at DESC LIMIT 10');
-        console.log('👥 Bot Users (last 10):');
-        users.rows.forEach((user, index) => {
-          console.log(`  ${index + 1}. ID: ${user.user_id}, Name: ${user.first_name}, Username: @${user.username || 'none'}, Created: ${user.created_at}`);
-        });
-        
-        const userCount = await client.query('SELECT COUNT(*) as count FROM bot_users');
-        console.log(`👥 Total Users: ${userCount.rows[0].count}`);
-      } catch (err) {
-        console.log('❌ Error reading bot_users:', err.message);
-      }
-      
-      // 4. Пользовательские имена
-      try {
-        const userNames = await client.query('SELECT * FROM user_names ORDER BY updated_at DESC LIMIT 10');
-        console.log('📝 User Names (last 10):');
-        userNames.rows.forEach((name, index) => {
-          console.log(`  ${index + 1}. Chat ID: ${name.chat_id}, Name: ${name.custom_name}, Updated: ${name.updated_at}`);
-        });
-        
-        const nameCount = await client.query('SELECT COUNT(*) as count FROM user_names');
-        console.log(`📝 Total Custom Names: ${nameCount.rows[0].count}`);
-      } catch (err) {
-        console.log('❌ Error reading user_names:', err.message);
-      }
-      
-      // 5. Расписания
-      try {
-        const schedules_db = await client.query('SELECT * FROM schedules ORDER BY updated_at DESC');
-        console.log('📅 Schedules from DB:');
-        schedules_db.rows.forEach((schedule, index) => {
-          const data = JSON.parse(schedule.schedule_data);
-          console.log(`  ${index + 1}. Address: ${schedule.address}`);
-          console.log(`     Slots: ${data.length}`);
-          console.log(`     Updated: ${schedule.updated_at}`);
-          
-          // Показываем первые 3 слота для примера
-          if (data.length > 0) {
-            console.log('     Sample slots:');
-            data.slice(0, 3).forEach((slot, slotIndex) => {
-              console.log(`       ${slotIndex + 1}. ${slot.date} ${slot.time} - ${slot.direction}`);
-            });
-            if (data.length > 3) {
-              console.log(`       ... и еще ${data.length - 3} слотов`);
-            }
-          }
-          console.log('');
-        });
-        
-        const scheduleCount = await client.query('SELECT COUNT(*) as count FROM schedules');
-        console.log(`📅 Total Schedule Addresses: ${scheduleCount.rows[0].count}`);
-      } catch (err) {
-        console.log('❌ Error reading schedules:', err.message);
-      }
-      
-      client.release();
-      
-      console.log('🔍 ===== DUMP DATABASE END =====');
-      
-      await ctx.reply('✅ База данных выведена в логи сервера. Проверьте консоль.');
-      
-    } catch (err) {
-      console.error('❌ Error dumping database:', err);
-      await ctx.reply(`❌ Ошибка при выводе БД: ${err.message}`);
-    }
-    return;
-  }
-  
-  if (text.startsWith(`/dump_schedules@${botUsername}`)) {
-    console.log('📝 Команда dump_schedules с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    console.log('📅 ===== SCHEDULES DUMP START =====');
-    console.log('📊 Global schedules variable:');
-    console.log(`Addresses count: ${Object.keys(schedules).length}`);
-    
-    Object.entries(schedules).forEach(([address, slots], index) => {
-      console.log(`\n${index + 1}. 🏢 ${address}:`);
-      console.log(`   Slots: ${slots.length}`);
-      
-      if (slots.length > 0) {
-        // Группируем по датам
-        const byDate = {};
-        slots.forEach(slot => {
-          if (!byDate[slot.date]) byDate[slot.date] = [];
-          byDate[slot.date].push(slot);
-        });
-        
-        Object.entries(byDate).forEach(([date, dateSlots]) => {
-          console.log(`   📅 ${date}: ${dateSlots.length} slots`);
-          dateSlots.slice(0, 5).forEach(slot => {
-            console.log(`      ${slot.time} - ${slot.direction}`);
-          });
-          if (dateSlots.length > 5) {
-            console.log(`      ... и еще ${dateSlots.length - 5} слотов`);
-          }
-        });
-      }
-    });
-    
-    console.log('📅 ===== SCHEDULES DUMP END =====');
-    
-    await ctx.reply('✅ Расписания выведены в логи сервера. Проверьте консоль.');
-    return;
-  }
-  
-  if (text.startsWith(`/db_status@${botUsername}`)) {
-    console.log('📝 Команда db_status с упоминанием получена от:', ctx.chat.id);
-    
-    if (!(await isAdminUser(ctx))) {
-      return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-    }
-    
-    if (!pool) {
-      return ctx.reply('❌ База данных не подключена (используется память)');
-    }
-    
-    try {
-      const client = await pool.connect();
-      const result = await client.query('SELECT NOW() as time');
-      const usersCount = await getUsersCount();
-      const schedulesCount = Object.keys(schedules).length;
-      
-      client.release();
-      
-      await ctx.reply(`✅ База данных работает
-🕐 Время сервера: ${result.rows[0].time}
-👥 Пользователей: ${usersCount}
-📅 Студий в расписании: ${schedulesCount}
-🔗 Подключение: PostgreSQL`);
-      
-    } catch (err) {
-      console.error('DB status error:', err);
-      await ctx.reply(`❌ Ошибка БД: ${err.message}`);
-    }
-    return;
-  }
-
-// В секции bot.on('text') добавьте:
-if (text.startsWith(`/clean_db@${botUsername}`)) {
-  console.log('📝 Команда clean_db с упоминанием получена от:', ctx.chat.id);
-  
-  if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-  }
-  
-  if (!pool) {
-    return ctx.reply('❌ База данных не подключена');
-  }
-  
-  try {
-    const client = await pool.connect();
-    
-    // Очищаем таблицу schedules
-    await client.query('DELETE FROM schedules');
-    console.log('🗑️ Cleared schedules table');
-    
-    // Очищаем глобальную переменную
-    schedules = {};
-    
-    client.release();
-    
-    await ctx.reply('✅ База данных очищена. Загрузите новое расписание командой /update_schedule');
-    
-  } catch (err) {
-    console.error('❌ Error cleaning database:', err);
-    await ctx.reply(`❌ Ошибка очистки БД: ${err.message}`);
-  }
-  return;
-}
-
-
     if (awaitingScheduleUpload.has(ctx.chat.id)) {
       awaitingScheduleUpload.delete(ctx.chat.id);
       ctx.reply('❌ Загрузка расписания отменена');
@@ -975,20 +763,6 @@ bot.command('contacts', ctx => {
   );
 });
 
-// Добавьте эту команду после других админских команд
-bot.command('server_time', async (ctx) => {
-  const now = new Date();
-  const moscowTime = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Moscow"}));
-  
-  const message = `🕐 Время сервера:
-📅 UTC: ${now.toISOString()}
-📅 Москва: ${moscowTime.toLocaleString('ru-RU')}
-📅 Локальное: ${now.toLocaleString('ru-RU')}
-⏰ Timestamp: ${now.getTime()}`;
-  
-  await ctx.reply(message);
-});
-
 
 // Исправленная команда update_schedule
 bot.command('update_schedule', async (ctx) => {
@@ -1090,30 +864,6 @@ bot.on('document', async (ctx) => {
     console.error('❌ Ошибка при обработке файла:', error);
     ctx.reply(`❌ Ошибка: ${error.message}`);
   }
-});
-
-bot.command('check_schedules', async (ctx) => {
-  if (!(await isAdminUser(ctx))) {
-    return ctx.reply('❌ У вас нет прав для выполнения этой команды');
-  }
-  
-  const addressCount = Object.keys(schedules).length;
-  const totalSlots = Object.values(schedules).reduce((sum, arr) => sum + arr.length, 0);
-  
-  let message = `📊 Текущее состояние расписаний:\n`;
-  message += `🏢 Студий: ${addressCount}\n`;
-  message += `📅 Всего слотов: ${totalSlots}\n\n`;
-  
-  if (addressCount > 0) {
-    message += `Студии:\n`;
-    Object.keys(schedules).forEach(address => {
-      message += `• ${address}: ${schedules[address].length} слотов\n`;
-    });
-  } else {
-    message += `❌ Расписания не загружены`;
-  }
-  
-  await ctx.reply(message);
 });
 
 bot.on('contact', async ctx => {
