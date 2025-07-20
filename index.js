@@ -848,18 +848,37 @@ async function sendBookingToAdmin(bookingData) {
 
 const isProd = process.env.NODE_ENV === 'production';
 
+console.log(`🔧 Режим запуска: ${isProd ? 'PRODUCTION (webhook)' : 'DEVELOPMENT (polling)'}`);
+
 if (isProd) {
-  // PRODUCTION: webhook по настоящему HTTPS URL
-  await bot.telegram.deleteWebhook();
-  await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
-  app.use(bot.webhookCallback(WEBHOOK_PATH));
-  app.listen(PORT, () =>
-    console.log(`✅ Webhook установлен на ${WEBAPP_URL}${WEBHOOK_PATH}, порт ${PORT}`)
-  );
+  // PRODUCTION: только webhook, БЕЗ polling
+  try {
+    await bot.telegram.deleteWebhook();
+    await bot.telegram.setWebhook(`${WEBAPP_URL}${WEBHOOK_PATH}`);
+    app.use(bot.webhookCallback(WEBHOOK_PATH));
+    
+    app.listen(PORT, () => {
+      console.log(`✅ Webhook установлен на ${WEBAPP_URL}${WEBHOOK_PATH}, порт ${PORT}`);
+      console.log(`🌐 WebApp доступен: ${WEBAPP_URL}`);
+    });
+  } catch (error) {
+    console.error('❌ Ошибка установки webhook:', error);
+    process.exit(1);
+  }
 } else {
-  // DEVELOPMENT: long polling, проще всего для локального теста
-  await bot.launch();
-  app.listen(PORT, () => console.log(`🤖 Бот запущен в режиме polling, порт ${PORT}`));
+  // DEVELOPMENT: только polling, БЕЗ webhook
+  try {
+    await bot.telegram.deleteWebhook(); // Удаляем webhook если был
+    await bot.launch();
+    
+    app.listen(PORT, () => {
+      console.log(`🤖 Бот запущен в режиме polling, порт ${PORT}`);
+      console.log(`🌐 WebApp доступен: http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Ошибка запуска polling:', error);
+    process.exit(1);
+  }
 }
 
 // graceful shutdown
