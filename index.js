@@ -37,6 +37,7 @@ const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_PATH = '/tg-webhook';
 
+const HOST = process.env.HOST || '0.0.0.0';  // Добавьте в начало файла
 // объявляем pool заранее
 let pool
 
@@ -859,7 +860,6 @@ app.get('/test', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-const HOST = process.env.HOST || '0.0.0.0';  // Добавьте в начало файла
 
 // И в секции запуска:
 if (isProd) {
