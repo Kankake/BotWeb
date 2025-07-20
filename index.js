@@ -1181,20 +1181,64 @@ bot.on('callback_query', async (ctx) => {
 
 
 // Endpoints
+// Замените существующий endpoint /slots на этот улучшенный вариант:
 app.post('/slots', (req, res) => {
+  console.log('🔍 /slots request received:', {
+    body: req.body,
+    timestamp: new Date().toISOString()
+  });
+  
   const { direction, address, days = 3 } = req.body;
+  
+  console.log('📊 Request parameters:', {
+    direction: direction,
+    address: address,
+    days: days
+  });
+  
+  // Проверяем, есть ли расписания вообще
+  console.log('📅 Available schedules:', {
+    totalAddresses: Object.keys(schedules).length,
+    addresses: Object.keys(schedules)
+  });
+  
+  // Проверяем конкретный адрес
+  const arr = schedules[address] || [];
+  console.log(`📍 Schedule for address "${address}":`, {
+    found: !!schedules[address],
+    slotsCount: arr.length,
+    firstFewSlots: arr.slice(0, 3)
+  });
+  
   const now = new Date();
   const targetDate = new Date();
   targetDate.setDate(targetDate.getDate() + days);
-
-  const arr = schedules[address] || [];
+  
+  console.log('⏰ Time range:', {
+    now: now.toISOString(),
+    targetDate: targetDate.toISOString(),
+    daysAhead: days
+  });
 
   const slots = arr
     .filter(slot => {
       const slotDateTime = new Date(`${slot.date}T${slot.time}`);
-      const match = slot.direction.trim() === direction.trim();
+      const directionMatch = slot.direction.trim() === direction.trim();
+      const timeValid = !isNaN(slotDateTime.getTime());
+      const timeInRange = slotDateTime >= now && slotDateTime <= targetDate;
       
-      return match && !isNaN(slotDateTime.getTime()) && slotDateTime >= now && slotDateTime <= targetDate;
+      console.log(`🔍 Checking slot:`, {
+        slot: `${slot.date} ${slot.time} - ${slot.direction}`,
+        directionMatch,
+        directionExpected: direction.trim(),
+        directionActual: slot.direction.trim(),
+        timeValid,
+        timeInRange,
+        slotDateTime: slotDateTime.toISOString(),
+        passed: directionMatch && timeValid && timeInRange
+      });
+      
+      return directionMatch && timeValid && timeInRange;
     })
     .map(slot => ({ date: slot.date, time: slot.time }))
     .sort((a, b) => {
@@ -1203,8 +1247,14 @@ app.post('/slots', (req, res) => {
       return dateA - dateB;
     });
 
+  console.log('✅ Final result:', {
+    slotsFound: slots.length,
+    slots: slots
+  });
+
   res.json({ ok: true, slots });
 });
+
 
 // Добавляем новый endpoint для получения имени пользователя
 app.get('/user-name/:telegram_id', async (req, res) => {
